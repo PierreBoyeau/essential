@@ -1,0 +1,34 @@
+{
+    "name": "Essentiality Analysis",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    // Mount the project folder into the container
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+
+    // Mount the data folder
+    "mounts": [
+        "source=/ewsc/pboyeau/data,target=/workspace/data,type=bind,consistency=cached",
+    ],
+
+    // Forward the Jupyter port
+    "forwardPorts": [5937],
+
+    // Run the container with GPU support
+    "runArgs": ["--device=nvidia.com/gpu=1"],
+
+    "postCreateCommand": "pip install -e .",
+
+
+    // Install useful extensions
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter"
+            ]
+        }
+    }
+}
