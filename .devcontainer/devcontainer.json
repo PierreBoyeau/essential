@@ -1,5 +1,5 @@
 {
-    "name": "Essentiality Analysis",
+    "name": "essential",
     "build": {
         "dockerfile": "../Dockerfile",
         "context": ".."
@@ -17,7 +17,7 @@
     "forwardPorts": [5937],
 
     // Run the container with GPU support
-    "runArgs": ["--device=nvidia.com/gpu=1"],
+    "runArgs": ["--device=nvidia.com/gpu=2"],
 
     "postCreateCommand": "pip install -e .",
 
@@ -27,7 +27,8 @@
         "vscode": {
             "extensions": [
                 "ms-python.python",
-                "ms-toolsai.jupyter"
+                "ms-toolsai.jupyter",
+                "ms-python.black-formatter"
             ]
         }
     }

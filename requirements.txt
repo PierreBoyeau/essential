@@ -11,3 +11,5 @@ seaborn==0.13.2
 scikit-image==0.25.2
 diffrax==0.7.0
 pytest==8.4.2
+black==24.10.0
+plotly==6.3.1
