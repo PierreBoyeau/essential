@@ -1,277 +1,16 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-import flax.linen as nn
 import optax
 from tqdm import tqdm
 from flax.training import train_state
 import pandas as pd
-from flax.linen.initializers import normal
 import scanpy as sc
-import diffrax
 
-
-class SteadyStateForcingModel(nn.Module):
-    """Steady-state model with external forcing perturbation.
-
-    Model: Σ_j A_{ij} x_j = u_i
-    Issue: Treats knockdown as external forcing (unphysical at steady-state)
-    """
-
-    n_genes: int
-    n_tfs: int
-    tf2gene_indicators: jnp.ndarray
-    lambda_prior: float
-
-    def setup(self):
-        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
-
-    def get_Amat(self):
-        # Amat = self.Amat_ * (1 - jnp.eye(self.n_genes))
-        # this was a mistake, we should allow for diagonal terms
-        # to capture decay of regulatory elements
-        return self.Amat_
-
-    def get_bvec(self):
-        return -nn.softplus(self.bvec_)
-
-    def __call__(self, x: jnp.ndarray, u: jnp.ndarray) -> dict:
-
-        indic_times_param = u * self.get_bvec()
-        perturb_contribution = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, indic_times_param)
-        A_mat = self.get_Amat()
-        conc_contribution = jnp.einsum("gj,nj->ng", A_mat, x)
-
-        # reco_loss = jnp.mean((conc_contribution + perturb_contribution)**2)
-        # l1_prior = jnp.mean(jnp.abs(A_mat))
-        # loss = reco_loss + self.lambda_prior * l1_prior
-
-        N = x.shape[0]
-        reco_loss = jnp.mean((conc_contribution + perturb_contribution) ** 2)
-        lap_density = jnp.abs(A_mat) * self.lambda_prior
-        l1_prior = jnp.sum(lap_density) / N
-        loss = reco_loss + l1_prior
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}
-
-
-class SteadyStateDecayModel(nn.Module):
-    """Steady-state model with decay modulation perturbation.
-
-    Model: gamma_i (Σ_j A_{ij} x_j) = beta_i x_i
-    At steady state, knockdown increases decay rate of the knocked-down gene.
-    Note: A_{ii} = 0 (diagonal removed) to separate auto-regulation from decay.
-    """
-
-    n_genes: int
-    n_tfs: int
-    tf2gene_indicators: jnp.ndarray
-    lambda_prior: float
-
-    def setup(self):
-        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.decay_ = self.param("decay_", normal(), (self.n_genes))
-        self.perturbation_decay_ = self.param("perturbation_decay_", normal(), (self.n_tfs))
-
-    def get_Amat(self):
-        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
-        return Amat
-
-    def get_perturbation_decay(self):
-        return nn.softplus(self.perturbation_decay_)
-
-    def get_decay(self):
-        return nn.softplus(self.decay_)
-
-    def __call__(self, x: jnp.ndarray, u: jnp.ndarray) -> dict:
-        Amat = self.get_Amat()
-        decay = self.get_decay()
-        perturbation_decay = self.get_perturbation_decay()
-
-        cross_terms = jnp.einsum("gj,nj->ng", Amat, x)
-        perturb_term = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, u)
-        product_contribution = (1.0 - perturb_term) * cross_terms
-
-        decay_contribution = decay * x
-
-        derivative = product_contribution - decay_contribution
-        reco_loss = jnp.mean(derivative**2)
-        N = x.shape[0]
-        lap_density = jnp.abs(Amat) * self.lambda_prior
-        l1_prior = jnp.sum(lap_density) / N
-        loss = reco_loss + l1_prior
-
-        diagnostics = {
-            "cross_terms_mean": jnp.mean(jnp.abs(cross_terms)),
-            "perturb_term_mean": jnp.mean(jnp.abs(perturb_term)),
-            "perturbation_decay_values": perturbation_decay,
-            "u_active_fraction": jnp.mean(u.sum(axis=1) > 0),
-        }
-
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior, **diagnostics}
-
-
-class MultiplicativeKnockdownWithBasal(nn.Module):
-    """Steady-state model with basal transcription and multiplicative knockdown.
-
-    Model: dx/dt = β + (1 - u) ⊙ (Ax) - γx = 0
-
-    Knockdown reduces regulatory input multiplicatively. Basal transcription β
-    represents constitutive expression independent of regulatory control.
-    Diagonal of A is zero to separate cross-regulation from decay.
-    """
-
-    n_genes: int
-    n_tfs: int
-    tf2gene_indicators: jnp.ndarray
-    lambda_prior: float
-
-    def setup(self):
-        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.decay_ = self.param("decay_", normal(), (self.n_genes))
-        self.basal_transcription_ = self.param("basal_transcription_", normal(), (self.n_genes))
-
-    def get_Amat(self):
-        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
-        return Amat
-
-    def get_decay(self):
-        return nn.softplus(self.decay_)
-
-    def get_basal_transcription(self):
-        return nn.softplus(self.basal_transcription_)
-
-    def __call__(self, x: jnp.ndarray, u: jnp.ndarray) -> dict:
-        Amat = self.get_Amat()
-        decay = self.get_decay()
-        basal_transcription = self.get_basal_transcription()
-
-        cross_terms = jnp.einsum("gj,nj->ng", Amat, x)
-        perturb_term = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, u)
-        product_contribution = basal_transcription + (1.0 - perturb_term) * cross_terms
-
-        decay_contribution = decay * x
-
-        derivative = product_contribution - decay_contribution
-        reco_loss = jnp.mean(derivative**2)
-        N = x.shape[0]
-        lap_density = jnp.abs(Amat) * self.lambda_prior
-        l1_prior = jnp.sum(lap_density) / N
-        loss = reco_loss + l1_prior
-
-        diagnostics = {
-            "cross_terms_mean": jnp.mean(jnp.abs(cross_terms)),
-            "perturb_term_mean": jnp.mean(jnp.abs(perturb_term)),
-            "u_active_fraction": jnp.mean(u.sum(axis=1) > 0),
-        }
-
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior, **diagnostics}
-
-
-class MultiplicativeKnockdownModel(nn.Module):
-    """Steady-state model with multiplicative knockdown of regulatory inputs.
-
-    Model: dx/dt = (1 - u) ⊙ (Ax) - γx = 0
-
-    Knockdown reduces regulatory input multiplicatively. Diagonal of A is zero
-    to separate cross-regulation from decay.
-    """
-
-    n_genes: int
-    n_tfs: int
-    tf2gene_indicators: jnp.ndarray
-    lambda_prior: float
-
-    def setup(self):
-        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.decay_ = self.param("decay_", normal(), (self.n_genes))
-
-    def get_Amat(self):
-        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
-        return Amat
-
-    def get_decay(self):
-        return nn.softplus(self.decay_)
-
-    def __call__(self, x: jnp.ndarray, u: jnp.ndarray) -> dict:
-        Amat = self.get_Amat()
-        decay = self.get_decay()
-
-        cross_terms = jnp.einsum("gj,nj->ng", Amat, x)
-        perturb_term = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, u)
-        product_contribution = (1.0 - perturb_term) * cross_terms
-
-        decay_contribution = decay * x
-
-        derivative = product_contribution - decay_contribution
-        reco_loss = jnp.mean(derivative**2)
-        N = x.shape[0]
-        lap_density = jnp.abs(Amat) * self.lambda_prior
-        l1_prior = jnp.sum(lap_density) / N
-        loss = reco_loss + l1_prior
-
-        diagnostics = {
-            "cross_terms_mean": jnp.mean(jnp.abs(cross_terms)),
-            "perturb_term_mean": jnp.mean(jnp.abs(perturb_term)),
-            "u_active_fraction": jnp.mean(u.sum(axis=1) > 0),
-        }
-
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior, **diagnostics}
-
-
-class DynamicCellboxModel(nn.Module):
-    n_genes: int
-    n_tfs: int
-    tf2gene_indicators: jnp.ndarray
-    lambda_prior: float
-
-    def setup(self):
-        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
-
-    def get_Amat(self):
-        return self.Amat_
-
-    def get_bvec(self):
-        return -nn.softplus(self.bvec_)
-
-    def __call__(self, x: jnp.ndarray, u: jnp.ndarray) -> dict:
-
-        A_mat = self.get_Amat()
-        bvec = self.get_bvec()
-        solver = diffrax.Dopri5()
-        saveat = diffrax.SaveAt(t1=True)
-
-        def solve_single(x_i, u_i):
-            indic_times_param_i = u_i * bvec
-            perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
-
-            def ode_fn(t, y, args):
-                conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
-                return conc_contribution + perturb_i
-
-            ode_term = diffrax.ODETerm(ode_fn)
-            sol = diffrax.diffeqsolve(
-                ode_term, solver, t0=0.0, t1=1.0, dt0=0.1, y0=x_i, saveat=saveat
-            )
-            return sol.ys
-
-        xpred = jax.vmap(solve_single, in_axes=(0, 0))(x, u)
-        reco_loss = jnp.mean((xpred - x) ** 2)
-        l1_prior = jnp.mean(jnp.abs(A_mat))
-        loss = reco_loss + self.lambda_prior * l1_prior
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}
+from .models import MODEL_REGISTRY
 
 
 class ODEstimator:
-    MODEL_REGISTRY = {
-        "steady_state_forcing": SteadyStateForcingModel,
-        "steady_state_decay": SteadyStateDecayModel,
-        "multiplicative_knockdown": MultiplicativeKnockdownModel,
-        "multiplicative_knockdown_with_basal": MultiplicativeKnockdownWithBasal,
-        "dynamic_cellbox": DynamicCellboxModel,
-    }
-
     def __init__(
         self,
         adata: sc.AnnData,
@@ -282,13 +21,14 @@ class ODEstimator:
         self.adata = adata.copy()
         self.preprocess_mode = preprocess_mode
         self._prepare_data()
+        self._print_dataset_statistics(self.U)
 
         if model_kwargs is None:
             model_kwargs = {}
         model_kwargs["lambda_prior"] = model_kwargs.get("lambda_prior", 1e0)
 
         if isinstance(model_class, str):
-            model_class = self.MODEL_REGISTRY[model_class]
+            model_class = MODEL_REGISTRY[model_class]
 
         self.model = model_class(
             n_genes=self.n_genes,
@@ -333,18 +73,7 @@ class ODEstimator:
                 U.append(np.zeros((self.n_tfs,)))
         self.U = jnp.array(U)
 
-    def fit(
-        self,
-        learning_rate=1e-3,
-        n_iter=5000,
-        early_stopping_patience=20,
-        early_stopping_metric="loss",
-        log_gradients_every=100,
-    ):
-        x_ = jnp.array(self.X)
-        u_ = jnp.array(self.U)
-
-        # Print dataset statistics
+    def _print_dataset_statistics(self, u_):
         n_perturbed = (u_.sum(axis=1) > 0).sum()
         n_total = u_.shape[0]
         print(f"\nDataset info:")
@@ -356,16 +85,46 @@ class ODEstimator:
         print(f"  Number of TFs: {self.n_tfs}")
         print(f"  Number of genes: {self.n_genes}\n")
 
-        @jax.jit
-        def train_step(state):
-            def loss_fn(params):
-                variables = {"params": params}
-                loss_dict = state.apply_fn(variables, x_, u_)
-                return loss_dict["loss"], loss_dict
+    @jax.jit
+    def _train_step(self, state, x, u):
+        def loss_fn(params):
+            variables = {"params": params}
+            loss_dict = state.apply_fn(variables, x, u)
+            return loss_dict["loss"], loss_dict
 
-            (loss_val, loss_dict), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
-            state = state.apply_gradients(grads=grads)
-            return state, loss_dict, grads
+        (_, loss_dict), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
+        state = state.apply_gradients(grads=grads)
+        return state, loss_dict, grads
+
+    def _log_gradient_norms(self, name, grads):
+        grad_norms = {k: float(jnp.linalg.norm(v)) for k, v in grads.items()}
+        print(f"\n{name} Gradient norms:")
+        for param_name, norm in grad_norms.items():
+            print(f"  {param_name}: {norm:.6e}")
+
+    def _log_model_diagnostics(self, name, loss_dict):
+        if "cross_terms_mean" in loss_dict:
+            print(f"\n{name} Model diagnostics:")
+            print(f"  cross_terms_mean: {float(loss_dict['cross_terms_mean']):.6e}")
+            print(f"  perturb_term_mean: {float(loss_dict['perturb_term_mean']):.6e}")
+            print(f"  u_active_fraction: {float(loss_dict['u_active_fraction']):.4f}")
+            if "perturbation_decay_mean" in loss_dict:
+                print(
+                    f"  perturbation_decay_mean: {float(loss_dict['perturbation_decay_mean']):.6e}"
+                )
+
+    def fit(
+        self,
+        learning_rate=1e-3,
+        n_epochs=5000,
+        batch_size=None,
+        early_stopping_patience=20,
+        early_stopping_metric="loss",
+        log_gradients_every=100,
+    ):
+        x_ = jnp.array(self.X)
+        u_ = jnp.array(self.U)
+        n_obs = x_.shape[0]
 
         dummy_x = jnp.zeros((4, self.n_genes))
         dummy_u = jnp.zeros((4, self.n_tfs))
@@ -377,32 +136,38 @@ class ODEstimator:
         )
 
         loss_history = []
-        pbar = tqdm(range(n_iter))
+        pbar = tqdm(range(n_epochs))
         hasnt_improved_counter = 0
         best_loss = 1e10
 
         for i in pbar:
-            self.state, loss_dict, grads = train_step(self.state)
-            loss_history.append(loss_dict)
+            if batch_size is None:
+                self.state, loss_dict, grads = self._train_step(self.state, x_, u_)
+                loss_history.append(loss_dict)
+            else:
+                permutation = jax.random.permutation(jax.random.PRNGKey(i), n_obs)
+                x_perm = x_[permutation]
+                u_perm = u_[permutation]
+
+                epoch_losses = []
+                for j in range(0, n_obs, batch_size):
+                    x_batch = x_perm[j : j + batch_size]
+                    u_batch = u_perm[j : j + batch_size]
+                    self.state, loss_dict, grads = self._train_step(self.state, x_batch, u_batch)
+                    epoch_losses.append(loss_dict)
+
+                # Average losses for the epoch for logging and early stopping
+                avg_loss_dict = {
+                    k: jnp.mean(jnp.array([d[k] for d in epoch_losses])) for k in epoch_losses[0]
+                }
+                loss_history.append(avg_loss_dict)
+                loss_dict = avg_loss_dict
 
             # Log gradients intermittently
             if log_gradients_every > 0 and i % log_gradients_every == 0:
-                grad_norms = {k: float(jnp.linalg.norm(v)) for k, v in grads.items()}
-                print(f"\n[Step {i}] Gradient norms:")
-                for param_name, norm in grad_norms.items():
-                    print(f"  {param_name}: {norm:.6e}")
-
-                # Log diagnostics if available
-                if "cross_terms_mean" in loss_dict:
-                    print(f"\n[Step {i}] Model diagnostics:")
-                    print(f"  cross_terms_mean: {float(loss_dict['cross_terms_mean']):.6e}")
-                    print(f"  perturb_term_mean: {float(loss_dict['perturb_term_mean']):.6e}")
-                    print(f"  u_active_fraction: {float(loss_dict['u_active_fraction']):.4f}")
-                    if "perturbation_decay_values" in loss_dict:
-                        pert_decay = loss_dict["perturbation_decay_values"]
-                        print(
-                            f"  perturbation_decay min/mean/max: {float(pert_decay.min()):.6e} / {float(pert_decay.mean()):.6e} / {float(pert_decay.max()):.6e}"
-                        )
+                step_name = f"Epoch {i}"
+                self._log_gradient_norms(step_name, grads)
+                self._log_model_diagnostics(step_name, loss_dict)
 
             pbar.set_postfix(loss=f'{loss_dict["loss"].item()}')
             if loss_dict[early_stopping_metric] < best_loss:

@@ -18,7 +18,7 @@ def test_ode_model():
         ode_model = ODEstimator(
             adata_, preprocess_mode="concentration", model_kwargs={"lambda_prior": 1.5e-7}
         )
-        ode_model.fit(learning_rate=1e-2, n_iter=10)
+        ode_model.fit(learning_rate=1e-2, n_epochs=10)
 
 
 def test_steady_state_decay_model():
@@ -37,6 +37,14 @@ def test_steady_state_decay_model():
             adata_,
             preprocess_mode="concentration",
             model_kwargs={"lambda_prior": 1.5e-7},
-            model_class="steady_state_decay_simple",
+            model_class="steady_state_decay",
         )
-        ode_model.fit(learning_rate=1e-2, n_iter=10, log_gradients_every=5)
+        ode_model.fit(learning_rate=1e-2, n_epochs=10, log_gradients_every=5)
+
+        ode_model = ODEstimator(
+            adata_,
+            preprocess_mode="concentration",
+            model_kwargs={"lambda_prior": 1.5e-7},
+            model_class="steady_state_decay",
+        )
+        ode_model.fit(learning_rate=1e-2, n_epochs=10, log_gradients_every=5, batch_size=100)
