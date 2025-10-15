@@ -55,7 +55,7 @@ def main():
     model_kwargs = {"lambda_prior": kwargs["lambda_prior"]}
     estimator = ODEstimator(
         adata,
-        preprocess_mode=kwargs["preprocess_mode"],
+        expression_type=kwargs["preprocess_mode"],
         model_kwargs=model_kwargs,
         model_class=kwargs["model_class"],
     )

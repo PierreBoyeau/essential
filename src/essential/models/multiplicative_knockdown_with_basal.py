@@ -30,20 +30,20 @@ class MultiplicativeKnockdownWithBasal(BaseModel):
     def get_basal_transcription(self):
         return nn.softplus(self.basal_transcription_)
 
-    def __call__(self, x: jnp.ndarray, u: jnp.ndarray) -> dict:
+    def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
         Amat = self.get_Amat()
         decay = self.get_decay()
         basal_transcription = self.get_basal_transcription()
 
-        cross_terms = jnp.einsum("gj,nj->ng", Amat, x)
+        cross_terms = jnp.einsum("gj,nj->ng", Amat, xt)
         perturb_term = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, u)
         product_contribution = basal_transcription + (1.0 - perturb_term) * cross_terms
 
-        decay_contribution = decay * x
+        decay_contribution = decay * xt
 
         derivative = product_contribution - decay_contribution
         reco_loss = jnp.mean(derivative**2)
-        N = x.shape[0]
+        N = xt.shape[0]
         lap_density = jnp.abs(Amat) * self.lambda_prior
         l1_prior = jnp.sum(lap_density) / N
         loss = reco_loss + l1_prior

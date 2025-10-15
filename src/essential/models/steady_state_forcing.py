@@ -25,17 +25,17 @@ class SteadyStateForcingModel(BaseModel):
     def get_bvec(self):
         return -nn.softplus(self.bvec_)
 
-    def __call__(self, x: jnp.ndarray, u: jnp.ndarray) -> dict:
+    def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
         indic_times_param = u * self.get_bvec()
         perturb_contribution = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, indic_times_param)
         A_mat = self.get_Amat()
-        conc_contribution = jnp.einsum("gj,nj->ng", A_mat, x)
+        conc_contribution = jnp.einsum("gj,nj->ng", A_mat, xt)
 
         # reco_loss = jnp.mean((conc_contribution + perturb_contribution)**2)
         # l1_prior = jnp.mean(jnp.abs(A_mat))
         # loss = reco_loss + self.lambda_prior * l1_prior
 
-        N = x.shape[0]
+        N = xt.shape[0]
         reco_loss = jnp.mean((conc_contribution + perturb_contribution) ** 2)
         lap_density = jnp.abs(A_mat) * self.lambda_prior
         l1_prior = jnp.sum(lap_density) / N
