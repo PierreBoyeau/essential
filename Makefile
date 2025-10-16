@@ -11,7 +11,7 @@ build:
 	@if [ -n "$$(docker images -q ${IMAGE_NAME}:latest 2>/dev/null)" ]; then \
 		echo "--- Using cache from ${IMAGE_NAME}:latest"; \
 		docker build \
-			--cache-from "${IMAGE_NAME}:latest" \
+			--cache-from "${IMAGE_NAME}" \
 			-t "${IMAGE_NAME}:latest" \
 			-t "${IMAGE_NAME}:${GIT_COMMIT}" \
 			.; \

@@ -17,4 +17,6 @@ MODEL_REGISTRY = {
     "dynamic_cellbox": DynamicCellboxModel,
     "dynamic_hardmultiplicative": DynamicHardMultiplicativeModel,
     "dynamic_multiplicative": DynamicMultiplicativeModel,
+    "dynamic_linear": DynamicLinearModel,
+    "dynamic_linear_softplus": DynamicLinearSoftplusModel,
 }
