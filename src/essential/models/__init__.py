@@ -7,6 +7,7 @@ from .dynamic_hardmultiplicative import DynamicHardMultiplicativeModel
 from .dynamic_multiplicative import DynamicMultiplicativeModel
 from .dynamic_linear import DynamicLinearModel
 from .dynamic_linear_softplus import DynamicLinearSoftplusModel
+from .static import StaticModel
 
 
 MODEL_REGISTRY = {
@@ -19,4 +20,5 @@ MODEL_REGISTRY = {
     "dynamic_multiplicative": DynamicMultiplicativeModel,
     "dynamic_linear": DynamicLinearModel,
     "dynamic_linear_softplus": DynamicLinearSoftplusModel,
+    "static": StaticModel,
 }

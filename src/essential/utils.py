@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import json
@@ -35,11 +34,9 @@ def load_regulondb():
     ref_db = pd.read_csv(PATH_TO_REGULONDB, skiprows=44, sep="\t")
     ref_db.columns = ref_db.columns.str.replace(r"^\d+\)", "", regex=True)
     ref_db = (
-        ref_db.query("riType == 'tf-promoter'")
+        ref_db.loc[lambda x: x["riType"].isin(["tf-promoter", "tf-gene"])]
         .assign(
-            tf_promoter=lambda x: x["regulatorName"].str.lower()
-            + "_"
-            + x["firstGene"].str.lower(),
+            tf_promoter=lambda x: x["regulatorName"].str.lower() + "_" + x["firstGene"].str.lower(),
             target_gene=lambda x: x["firstGene"].str.lower(),
             regulator_gene=lambda x: x["regulatorName"].str.lower(),
             is_evidence=True,
@@ -87,11 +84,11 @@ def load_results(filename):
 
 
 def compute_metrics(
-    results_df, 
+    results_df,
     gt_col="is_evidence",
     score_col="score",
     decision_cols=None,
-    ):
+):
     """
     Compute precision–recall metrics and optional decision-threshold metrics.
 
@@ -137,7 +134,9 @@ def compute_metrics(
             metrics_res[f"precision_{decision_type}"] = decision_metrics.get("precision", 0.0)
             metrics_res[f"recall_{decision_type}"] = decision_metrics.get("recall", 0.0)
             metrics_res[f"ndetections_{decision_type}"] = (results_df[decision_col]).sum()
-            metrics_res[f"ntruepos_{decision_type}"] = (results_df[gt_col] & results_df[decision_col]).sum()
+            metrics_res[f"ntruepos_{decision_type}"] = (
+                results_df[gt_col] & results_df[decision_col]
+            ).sum()
     return metrics_res
 
 
@@ -193,4 +192,3 @@ def load_kegg_pathways():
     df["pathway1"] = df["pathways"].apply(first_pathway)
     df["target_gene"] = df["query_gene"].str.lower()
     return df
-    

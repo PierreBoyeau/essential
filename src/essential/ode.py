@@ -78,7 +78,8 @@ class ODEstimator:
         sc.pp.normalize_total(self.adata, target_sum=1)
         self.X = self.adata.X.toarray()
         if self.preprocess_mode == "normalized_concentration":
-            self.X = self.X / self.X.max(0)
+            xmax = np.quantile(self.X, 0.95, axis=0)
+            self.X = self.X / xmax
         elif self.preprocess_mode == "concentration":
             pass
         else:
@@ -249,6 +250,7 @@ class ODEstimator:
         early_stopping_patience=20,
         early_stopping_metric="loss",
         log_every_n_steps=100,
+        optimizer=None,
     ):
         self.x_ = jnp.array(self.X)
         self.u_ = jnp.array(self.U)
@@ -272,7 +274,8 @@ class ODEstimator:
             "params"
         ]
 
-        optimizer = optax.adam(learning_rate=learning_rate)
+        if optimizer is None:
+            optimizer = optax.adam(learning_rate=learning_rate)
         self.state = train_state.TrainState.create(
             apply_fn=self.model.apply, params=params, tx=optimizer
         )
