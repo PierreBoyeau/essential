@@ -22,7 +22,7 @@ def test_cellbox_model():
         model_class="dynamic_cellbox",
         pairing_strategy="nn",
     )
-    # ode_model.fit(learning_rate=1e-2, n_epochs=1, log_every_n_steps=1, batch_size=100)
+    ode_model.fit(learning_rate=1e-2, n_epochs=1, log_every_n_steps=10)
 
 
 def test_steady_state_decay_model():

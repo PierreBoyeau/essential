@@ -58,8 +58,16 @@ def main():
         expression_type=kwargs["preprocess_mode"],
         model_kwargs=model_kwargs,
         model_class=kwargs["model_class"],
+        subset_treated=True,
     )
-    estimator.fit(learning_rate=1e-2, n_iter=2500)
+    estimator.fit(
+        learning_rate=1e-3,
+        n_epochs=100,
+        early_stopping_patience=3,
+        early_stopping_metric="reco_loss",
+        log_every_n_steps=1,
+        batch_size=8000,
+    )
     a_mat = estimator.get_interaction_matrix()
     hash_ = save_config(kwargs, os.path.join(folder_path, "config.json"), config_hash)
     output_file = os.path.join(folder_path, f"Amat.npz")

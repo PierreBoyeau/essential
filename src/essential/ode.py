@@ -147,6 +147,13 @@ class ODEstimator:
 
     @staticmethod
     @jax.jit
+    def _eval_step(state, x0, xt, t, u):
+        variables = {"params": state.params}
+        loss_dict = state.apply_fn(variables, x0, xt, t, u)
+        return loss_dict
+
+    @staticmethod
+    @jax.jit
     def _train_step(state, x0, xt, t, u):
         def loss_fn(params):
             variables = {"params": params}
@@ -156,6 +163,65 @@ class ODEstimator:
         (_, loss_dict), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
         state = state.apply_gradients(grads=grads)
         return state, loss_dict, grads
+
+    def _run_epoch(self, state, key, indices, batch_size, is_training):
+        epoch_losses = []
+        step_history_for_epoch = []
+        grads = None
+
+        n_obs = len(indices)
+        n_batches = n_obs // batch_size
+
+        if is_training:
+            if n_batches == 0:
+                raise ValueError(
+                    "batch_size is larger than number of training observations; drop-last leaves zero batches"
+                )
+            key, perm_key = jax.random.split(key)
+            perm_indices = jax.random.permutation(perm_key, indices)
+        else:
+            if n_batches == 0:
+                return state, {}, [], None, key
+            perm_indices = indices
+
+        for j in range(n_batches):
+            start = j * batch_size
+            end = start + batch_size
+            batch_indices = perm_indices[start:end]
+
+            x_batch = self.x_[batch_indices]
+            u_batch = self.u_[batch_indices]
+            nn_batch = self.nn_index_[batch_indices]
+
+            key, neighbor_key = jax.random.split(key)
+            x0_batch = self.get_x0(nn_batch, self.x_, neighbor_key)
+
+            if is_training:
+                state, loss_dict, grads = self._train_step(
+                    state,
+                    x0=x0_batch,
+                    xt=x_batch,
+                    t=jnp.ones((x_batch.shape[0],)),
+                    u=u_batch,
+                )
+                step_history_for_epoch.append(loss_dict)
+            else:
+                loss_dict = self._eval_step(
+                    state,
+                    x0=x0_batch,
+                    xt=x_batch,
+                    t=jnp.ones((x_batch.shape[0],)),
+                    u=u_batch,
+                )
+            epoch_losses.append(loss_dict)
+
+        avg_loss_dict = {}
+        if epoch_losses:
+            avg_loss_dict = {
+                k: jnp.mean(jnp.array([d[k] for d in epoch_losses])) for k in epoch_losses[0]
+            }
+
+        return state, avg_loss_dict, step_history_for_epoch, grads, key
 
     def _log_gradient_norms(self, name, grads):
         grad_norms = {k: float(jnp.linalg.norm(v)) for k, v in grads.items()}
@@ -178,16 +244,25 @@ class ODEstimator:
         self,
         learning_rate=1e-3,
         n_epochs=5000,
-        batch_size=None,
+        batch_size=4096,
+        train_size=0.9,
         early_stopping_patience=20,
         early_stopping_metric="loss",
         log_every_n_steps=100,
     ):
-        x_ = jnp.array(self.X)
-        u_ = jnp.array(self.U)
-        n_obs = x_.shape[0]
-        n_neighbors = self.nn_index.shape[1]
+        self.x_ = jnp.array(self.X)
+        self.u_ = jnp.array(self.U)
+        batch_size_eval = 128
+        self.nn_index_ = jnp.array(self.nn_index)
+        n_obs = self.x_.shape[0]
         key = self.random_key
+
+        # Train/validation split
+        split_key = jax.random.PRNGKey(0)
+        indices = jax.random.permutation(split_key, n_obs)
+        train_idx_int = int(n_obs * train_size)
+        train_indices = indices[:train_idx_int]
+        val_indices = indices[train_idx_int:]
 
         dummy_x0 = jnp.zeros((4, self.n_genes))
         dummy_x = jnp.zeros((4, self.n_genes))
@@ -202,81 +277,67 @@ class ODEstimator:
             apply_fn=self.model.apply, params=params, tx=optimizer
         )
 
-        epoch_history = []
-        step_history = []
+        train_epoch_history = []
+        train_step_history = []
+        val_epoch_history = []
         pbar = tqdm(range(n_epochs))
         hasnt_improved_counter = 0
         best_loss = 1e10
 
         for i in pbar:
-            if batch_size is None:
-                x0 = self.get_x0(self.nn_index, x_, key)
-                self.state, loss_dict, grads = self._train_step(
-                    self.state, x0=x0, xt=x_, t=jnp.ones((n_obs,)), u=u_
-                )
-                epoch_history.append(loss_dict)
-                step_history.append(loss_dict)
-            else:
-                key, perm_key = jax.random.split(key)
-                permutation = jax.random.permutation(perm_key, n_obs)
-                x_perm = x_[permutation]
-                u_perm = u_[permutation]
-                nn_perm = self.nn_index[permutation]
-
-                epoch_losses = []
-                n_full_batches = n_obs // batch_size
-                if n_full_batches == 0:
-                    raise ValueError(
-                        "batch_size is larger than number of observations; drop-last leaves zero batches"
-                    )
-
-                # Process full-size batches only (drop last remainder)
-                for j in range(n_full_batches):
-                    start = j * batch_size
-                    end = start + batch_size
-                    key, neighbor_key = jax.random.split(key)
-                    x_batch = x_perm[start:end]
-                    u_batch = u_perm[start:end]
-                    nn_batch = nn_perm[start:end]
-                    x0_batch = self.get_x0(nn_batch, x_batch, neighbor_key)
-
-                    self.state, loss_dict, grads = self._train_step(
-                        self.state,
-                        x0=x0_batch,
-                        xt=x_batch,
-                        t=jnp.ones((x_batch.shape[0],)),
-                        u=u_batch,
-                    )
-                    step_history.append(loss_dict)
-                    epoch_losses.append(loss_dict)
-
-                # Average losses for the epoch for logging and early stopping
-                avg_loss_dict = {
-                    k: jnp.mean(jnp.array([d[k] for d in epoch_losses])) for k in epoch_losses[0]
-                }
-                epoch_history.append(avg_loss_dict)
-                loss_dict = avg_loss_dict
+            # Training
+            self.state, avg_train_loss_dict, train_steps, grads, key = self._run_epoch(
+                self.state, key, train_indices, batch_size=batch_size, is_training=True
+            )
+            train_step_history.extend(train_steps)
+            train_epoch_history.append(avg_train_loss_dict)
 
             # Log gradients intermittently
-            if log_every_n_steps > 0 and i % log_every_n_steps == 0:
+            if log_every_n_steps > 0 and i % log_every_n_steps == 0 and grads is not None:
                 step_name = f"Epoch {i}"
                 self._log_gradient_norms(step_name, grads)
-                self._log_model_diagnostics(step_name, loss_dict)
+                self._log_model_diagnostics(step_name, avg_train_loss_dict)
 
-            pbar.set_postfix(loss=f'{loss_dict["loss"].item()}')
-            if loss_dict[early_stopping_metric] < best_loss:
-                best_loss = loss_dict[early_stopping_metric]
+            # Validation
+            _, avg_val_loss_dict, _, _, key = self._run_epoch(
+                self.state, key, val_indices, batch_size=batch_size_eval, is_training=False
+            )
+            if avg_val_loss_dict:
+                val_epoch_history.append(avg_val_loss_dict)
+
+            pbar_postfix = {f"train_{k}": f"{v.item():.2E}" for k, v in avg_train_loss_dict.items()}
+            if avg_val_loss_dict:
+                pbar_postfix.update(
+                    {f"val_{k}": f"{v.item():.2E}" for k, v in avg_val_loss_dict.items()}
+                )
+            pbar.set_postfix(pbar_postfix)
+
+            metric_to_check = (
+                avg_val_loss_dict.get(early_stopping_metric)
+                if avg_val_loss_dict
+                else avg_train_loss_dict[early_stopping_metric]
+            )
+
+            if metric_to_check < best_loss:
+                best_loss = metric_to_check
                 hasnt_improved_counter = 0
             else:
                 hasnt_improved_counter += 1
             if hasnt_improved_counter > early_stopping_patience:
                 break
 
-        self.epoch_history_df = pd.DataFrame(epoch_history).astype(float)
-        self.step_history_df = pd.DataFrame(step_history).astype(float)
+        train_df = pd.DataFrame(train_epoch_history).add_prefix("train_")
+        val_df = pd.DataFrame(val_epoch_history).add_prefix("val_")
+        self.epoch_history_df = pd.concat([train_df, val_df], axis=1).astype(float)
+        self.step_history_df = pd.DataFrame(train_step_history).astype(float)
+
+        # Clean up temporary attributes
+        del self.x_
+        del self.u_
+        del self.nn_index_
 
     @staticmethod
-    def get_x0(knn, x, random_key):
+    def get_x0(knn, x_neighbors, random_key):
         """
         Select one random neighbor per row given a k-NN index.
 
@@ -284,8 +345,8 @@ class ODEstimator:
         ----------
         knn : jnp.ndarray, shape (B, K), int
             For each row b in x, `knn[b, :]` contains K neighbor row indices into x.
-        x : jnp.ndarray, shape (B, D)
-            Batch of feature vectors whose rows are indexable by `knn`.
+        x_neighbors : jnp.ndarray, shape (N, D)
+            Feature vectors of neighbors, indexable by `knn`.
         random_key : jax.random.PRNGKey
             Key used to sample one neighbor index per row.
 
@@ -294,12 +355,12 @@ class ODEstimator:
         jnp.ndarray, shape (B, D)
             `x0_batch` where row b equals `x[knn[b, r]]` with r ~ Uniform{0, ..., K-1}.
         """
-        batch_size = x.shape[0]
+        batch_size = knn.shape[0]
         n_neighbors = knn.shape[1]
         rdm_neighbor_idx = jax.random.randint(random_key, (batch_size,), 0, n_neighbors)
         arange_batch = jnp.arange(batch_size)
         rdm_neighbor = knn[arange_batch, rdm_neighbor_idx]
-        x0_batch = x[rdm_neighbor]
+        x0_batch = x_neighbors[rdm_neighbor]
         return x0_batch
 
     def get_interaction_matrix(self, return_square=True, delta=None):
