@@ -47,7 +47,7 @@ class ODEstimator:
         self.gene_perturbations = None
         self.perturbation2geneidx = None
         self.n_genes = None
-        self.n_pertubations = None
+        self.n_perturbations = None
         self.pertubation_col = "consensus_target"
         self.batch_key = "rt_bc"
         self.control_key = "nontargeting"
@@ -62,7 +62,7 @@ class ODEstimator:
             model_class = MODEL_REGISTRY[model_class]
         self.model = model_class(
             n_genes=self.n_genes,
-            n_tfs=self.n_pertubations,
+            n_tfs=self.n_perturbations,
             tf2gene_indicators=self.perturbation2geneidx,
             **model_kwargs,
         )
@@ -75,22 +75,31 @@ class ODEstimator:
         # obtain expression data
         self.adata.X = self.adata.layers["counts"].copy()
         sc.pp.filter_genes(self.adata, min_cells=10)
-        sc.pp.normalize_total(self.adata, target_sum=1)
+        quantiles = np.quantile(self.adata.X.toarray(), 0.95, axis=0)
+        # print("Filtering genes by 95th percentile of expression:")
+        # ngenes_to_removes = (quantiles == 0).sum()
+        # print(f"Filtering {ngenes_to_removes} genes out of {self.adata.shape[1]} total genes")
+        # self.adata = self.adata[:, quantiles > 0].copy()
         self.X = self.adata.X.toarray()
         if self.preprocess_mode == "normalized_concentration":
+            print("Normalizing concentration data by 95th percentile...")
             xmax = np.quantile(self.X, 0.95, axis=0)
+            xmax[xmax == 0] = 1
             self.X = self.X / xmax
+            self.X[self.X > 1] = 1
+
         elif self.preprocess_mode == "concentration":
-            pass
+            sc.pp.normalize_total(self.adata, target_sum=1)
+            self.X = self.adata.X.toarray()
         else:
             raise ValueError("Invalid preprocess mode")
 
         # main perturbations to gene variables
         self.gene_perturbations = self.adata.obs[self.pertubation_col].unique()
         self.gene_perturbations = [t for t in self.gene_perturbations if t in self.adata.var_names]
-        self.n_pertubations = len(self.gene_perturbations)
+        self.n_perturbations = len(self.gene_perturbations)
         self.n_genes = self.X.shape[1]
-        perturbation2geneidx = np.zeros((self.n_genes, self.n_pertubations))
+        perturbation2geneidx = np.zeros((self.n_genes, self.n_perturbations))
         for pert_idx, pert_name in enumerate(self.gene_perturbations):
             gene_idx = self.adata.var_names.get_loc(pert_name)
             perturbation2geneidx[gene_idx, pert_idx] = 1
@@ -101,12 +110,12 @@ class ODEstimator:
         for cell_idx in range(self.X.shape[0]):
             pert_name = self.adata.obs[self.pertubation_col].iloc[cell_idx]
             if pert_name in self.gene_perturbations:
-                res_ = np.zeros((self.n_pertubations,))
+                res_ = np.zeros((self.n_perturbations,))
                 pert_idx = self.gene_perturbations.index(pert_name)
                 res_[pert_idx] = 1
                 U.append(res_)
             else:
-                U.append(np.zeros((self.n_pertubations,)))
+                U.append(np.zeros((self.n_perturbations,)))
         self.U = jnp.array(U)
 
         # compute NNs
@@ -130,9 +139,11 @@ class ODEstimator:
         if self.subset_treated:
             mask_ = (self.adata.obs[self.pertubation_col] != self.control_key).values
             self.adata = self.adata[mask_].copy()
-            self.X = self.adata.X.toarray()
+            self.X = self.X[mask_]
             self.U = self.U[mask_]
             self.nn_index = self.nn_index[mask_]
+        print(self.X.max(1))
+        print("shape of X: ", self.X.shape)
 
     def _print_dataset_statistics(self, u_):
         n_perturbed = (u_.sum(axis=1) > 0).sum()
@@ -143,7 +154,7 @@ class ODEstimator:
         print(
             f"  Control cells: {n_total - n_perturbed} ({100*(n_total - n_perturbed)/n_total:.1f}%)"
         )
-        print(f"  Number of TFs: {self.n_pertubations}")
+        print(f"  Number of TFs: {self.n_perturbations}")
         print(f"  Number of genes: {self.n_genes}\n")
 
     @staticmethod
@@ -266,13 +277,7 @@ class ODEstimator:
         train_indices = indices[:train_idx_int]
         val_indices = indices[train_idx_int:]
 
-        dummy_x0 = jnp.zeros((4, self.n_genes))
-        dummy_x = jnp.zeros((4, self.n_genes))
-        dummy_t = jnp.ones((4,))
-        dummy_u = jnp.zeros((4, self.n_pertubations))
-        params = self.model.init(jax.random.PRNGKey(0), dummy_x0, dummy_x, dummy_t, dummy_u)[
-            "params"
-        ]
+        params = self.model.init_params(jax.random.PRNGKey(0))
 
         if optimizer is None:
             optimizer = optax.adam(learning_rate=learning_rate)

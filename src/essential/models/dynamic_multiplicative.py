@@ -10,7 +10,7 @@ from .base_model import BaseModel
 class DynamicMultiplicativeModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.decay_ = self.param("decay_", normal(), (self.n_genes))
+        self.decay_ = jnp.ones(self.n_genes)
         self.perturb_decay_ = self.param("perturb_decay_", normal(), (self.n_tfs))
 
         self.solver = diffrax.Heun()

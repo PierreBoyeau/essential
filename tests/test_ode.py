@@ -1,6 +1,7 @@
 import scanpy as sc
 import jax
 from essential.ode import ODEstimator
+from essential.simulator import ODESimulator
 
 
 def test_cellbox_model():
@@ -52,3 +53,19 @@ def test_steady_state_decay_model():
         model_class="steady_state_decay",
     )
     ode_model.fit(learning_rate=1e-2, n_epochs=2, log_every_n_steps=1, batch_size=100)
+
+
+def test_simulator():
+    adata = sc.read_h5ad("/workspace/data/250516_TF_perturbseq/250516_TF_perturbseq.annotated.h5ad")
+    adata.X = adata.layers["counts"].copy()
+    sc.pp.normalize_total(adata, target_sum=1)
+    adata.layers["concentration"] = adata.X.copy()
+    adata.X = adata.layers["counts"].copy()
+
+    adata_ = adata[:1000, :100].copy()
+    sc.pp.filter_genes(adata_, min_cells=10)
+    simulator = ODESimulator(ode_model)
+    x0 = ode_model.X[:10]
+    u = ode_model.U[:10]
+    x_pred = simulator.simulate(x0, u)
+    assert x_pred.shape == (10, adata_.shape[1], 1)
