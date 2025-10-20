@@ -56,15 +56,13 @@ def test_steady_state_decay_model():
 
 
 def test_simulator():
-    adata = sc.read_h5ad("/workspace/data/250516_TF_perturbseq/250516_TF_perturbseq.annotated.h5ad")
-    adata.X = adata.layers["counts"].copy()
-    sc.pp.normalize_total(adata, target_sum=1)
-    adata.layers["concentration"] = adata.X.copy()
-    adata.X = adata.layers["counts"].copy()
-
-    adata_ = adata[:1000, :100].copy()
-    sc.pp.filter_genes(adata_, min_cells=10)
-    simulator = ODESimulator(ode_model)
+    simulator = ODESimulator(
+        n_obs=1000,
+        n_genes=100,
+        n_perturbed=10,
+        sparsity=0.1,
+        model_class="dynamic_cellbox",
+    )
     x0 = ode_model.X[:10]
     u = ode_model.U[:10]
     x_pred = simulator.simulate(x0, u)

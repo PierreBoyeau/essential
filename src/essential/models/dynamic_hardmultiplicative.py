@@ -23,7 +23,7 @@ class DynamicHardMultiplicativeModel(BaseModel):
     def get_decay(self):
         return nn.softplus(self.decay_)
 
-    def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
+    def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         A_mat = self.get_Amat()
         decay = self.get_decay()
 
@@ -41,7 +41,7 @@ class DynamicHardMultiplicativeModel(BaseModel):
                 ode_term,
                 self.solver,
                 t0=0.0,
-                t1=1.0,
+                t1=t,
                 dt0=0.1,
                 y0=x_i,
                 saveat=self.saveat,
@@ -49,7 +49,11 @@ class DynamicHardMultiplicativeModel(BaseModel):
             )
             return sol.ys
 
-        xpred = jax.vmap(solve_single, in_axes=(0, 0))(x0, u)
+        return jax.vmap(solve_single, in_axes=(0, 0))(x0, u)
+
+    def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
+        A_mat = self.get_Amat()
+        xpred = self.simulate(x0, u, t)
         reco_loss = jnp.mean((xpred - xt) ** 2)
         l1_prior = jnp.mean(jnp.abs(A_mat))
         loss = reco_loss + self.lambda_prior * l1_prior

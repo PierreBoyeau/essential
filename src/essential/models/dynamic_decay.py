@@ -7,32 +7,39 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicCellboxModel(BaseModel):
+class DynamicDecayModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
+        self.decay_ = jnp.ones(self.n_genes)
+        self.perturb_decay_ = self.param("perturb_decay_", normal(), (self.n_tfs))
 
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_
+        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+        return Amat
 
-    def get_bvec(self):
-        return -nn.softplus(self.bvec_)
+    def get_decay(self):
+        return nn.softplus(self.decay_)
+
+    def get_perturbation_decay(self):
+        return nn.softplus(self.perturb_decay_)
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         A_mat = self.get_Amat()
-        bvec = self.get_bvec()
+        decay = self.get_decay()
+        perturbation_decay = self.get_perturbation_decay()
 
         def solve_single(x_i, u_i):
-            indic_times_param_i = u_i * bvec
-            perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
+            perturb_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, perturbation_decay * u_i)
 
             def ode_fn(t, y, args):
-                conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
-                return conc_contribution + perturb_i
+                cross_terms = jnp.einsum("gj,j->g", A_mat, y)
+                product_contribution = cross_terms
+                decay_contribution = (decay + perturb_term) * y
+                return product_contribution - decay_contribution
 
             ode_term = diffrax.ODETerm(ode_fn)
             sol = diffrax.diffeqsolve(
@@ -55,4 +62,4 @@ class DynamicCellboxModel(BaseModel):
         reco_loss = jnp.mean((xpred - xt) ** 2)
         l1_prior = jnp.mean(jnp.abs(A_mat))
         loss = reco_loss + self.lambda_prior * l1_prior
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}
+        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior,}

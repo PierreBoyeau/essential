@@ -7,32 +7,28 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicCellboxModel(BaseModel):
+class DynamicLinearSoftplusModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
+        self.decay_ = self.param("decay_", normal(), (self.n_genes))
 
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_
+        return self.Amat_ * (1.0 - jnp.eye(self.n_genes))
 
-    def get_bvec(self):
-        return -nn.softplus(self.bvec_)
+    def get_decay(self):
+        return nn.softplus(self.decay_)
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         A_mat = self.get_Amat()
-        bvec = self.get_bvec()
+        decay = self.get_decay()
 
         def solve_single(x_i, u_i):
-            indic_times_param_i = u_i * bvec
-            perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
-
             def ode_fn(t, y, args):
-                conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
-                return conc_contribution + perturb_i
+                return jnp.einsum("gj,j->g", A_mat, y) - decay * y
 
             ode_term = diffrax.ODETerm(ode_fn)
             sol = diffrax.diffeqsolve(
