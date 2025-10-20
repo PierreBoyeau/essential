@@ -15,7 +15,16 @@ def test_cellbox_model():
     adata_ = adata
     sc.pp.filter_genes(adata_, min_cells=10)
 
-    # with jax.disable_jit():
+    with jax.disable_jit():
+        ode_model = ODEstimator(
+            adata_,
+            expression_type="concentration",
+            model_kwargs={"lambda_prior": 1.5e-7},
+            model_class="dynamic_multiplicative",
+            pairing_strategy="nn",
+        )
+        ode_model.fit(learning_rate=1e-2, n_epochs=1, log_every_n_steps=10)
+
     ode_model = ODEstimator(
         adata_,
         expression_type="concentration",
@@ -57,13 +66,10 @@ def test_steady_state_decay_model():
 
 def test_simulator():
     simulator = ODESimulator(
-        n_obs=1000,
         n_genes=100,
         n_perturbed=10,
         sparsity=0.1,
         model_class="dynamic_cellbox",
     )
-    x0 = ode_model.X[:10]
-    u = ode_model.U[:10]
-    x_pred = simulator.simulate(x0, u)
-    assert x_pred.shape == (10, adata_.shape[1], 1)
+    x = simulator.simulate(1000, t=1.0)
+    assert x.shape == (1000, 100)

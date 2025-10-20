@@ -27,7 +27,7 @@ class DynamicHardMultiplicativeModel(BaseModel):
         A_mat = self.get_Amat()
         decay = self.get_decay()
 
-        def solve_single(x_i, u_i):
+        def solve_single(x_i, u_i, t_i):
             perturb_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, u_i)
 
             def ode_fn(t, y, args):
@@ -41,15 +41,15 @@ class DynamicHardMultiplicativeModel(BaseModel):
                 ode_term,
                 self.solver,
                 t0=0.0,
-                t1=t,
+                t1=jnp.squeeze(t_i),
                 dt0=0.1,
                 y0=x_i,
                 saveat=self.saveat,
                 adjoint=self.adjoint,
             )
-            return sol.ys
+            return sol.ys[-1]
 
-        return jax.vmap(solve_single, in_axes=(0, 0))(x0, u)
+        return jax.vmap(solve_single, in_axes=(0, 0, 0))(x0, u, t)
 
     def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
         A_mat = self.get_Amat()
