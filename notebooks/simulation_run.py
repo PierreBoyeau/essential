@@ -5,6 +5,10 @@ Default sparsity: 0.003
 to align with the true sparsity of the interaction matrix (4175 genes * 0.003 = 12.525)
 """
 
+from essential.gpu_utils import select_best_gpus
+
+select_best_gpus(n_gpus=1)
+
 from essential.simulator import ODESimulator
 from essential.ode import ODEstimator
 

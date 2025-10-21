@@ -1,4 +1,4 @@
-SAVE_DIR="/workspace/results/simulation_experiment_1021_A"
+SAVE_DIR="/workspace/results/simulation_experiment_1021_B"
 DEFAULT_NOBS=100
 DEFAULT_NPERTURBED=10
 DEFAULT_T=0.01
