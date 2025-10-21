@@ -17,7 +17,7 @@
     "forwardPorts": [5937],
 
     // Run the container with GPU support
-    "runArgs": ["--device=nvidia.com/gpu=2"],
+    "runArgs": ["--device=nvidia.com/gpu=all"],
 
     "postCreateCommand": "pip install -e .",
 
