@@ -8,6 +8,7 @@ import pandas as pd
 import scanpy as sc
 from scvi.model import SCVI
 from sklearn.neighbors import NearestNeighbors
+from scipy.sparse import issparse
 import time
 
 
@@ -43,6 +44,7 @@ class ODEstimator:
         self.subset_treated = subset_treated
 
         self.X = None
+        self.X0 = None
         self.U = None
         self.gene_perturbations = None
         self.perturbation2geneidx = None
@@ -71,28 +73,35 @@ class ODEstimator:
         self.epoch_history_df = None
         self.step_history_df = None
 
+    def _preprocess_expression(self, counts):
+        # counts = counts.toarray()
+        if self.preprocess_mode == "normalized_concentration":
+            print("Normalizing concentration data by 95th percentile...")
+            xmax = np.quantile(counts, 0.95, axis=0)
+            xmax[xmax == 0] = 1
+            counts = counts / xmax
+            counts[counts > 1] = 1
+        elif self.preprocess_mode == "concentration":
+            counts = counts / counts.sum(axis=0)
+        elif self.preprocess_mode == "none":
+            pass
+        else:
+            raise ValueError("Invalid preprocess mode")
+        return counts
+
     def _prepare_data(self):
         # obtain expression data
         self.adata.X = self.adata.layers["counts"].copy()
-        sc.pp.filter_genes(self.adata, min_cells=10)
-        quantiles = np.quantile(self.adata.X.toarray(), 0.95, axis=0)
+        # sc.pp.filter_genes(self.adata, min_cells=10)
+        # quantiles = np.quantile(self.adata.X.toarray(), 0.95, axis=0)
         # print("Filtering genes by 95th percentile of expression:")
         # ngenes_to_removes = (quantiles == 0).sum()
         # print(f"Filtering {ngenes_to_removes} genes out of {self.adata.shape[1]} total genes")
         # self.adata = self.adata[:, quantiles > 0].copy()
-        self.X = self.adata.X.toarray()
-        if self.preprocess_mode == "normalized_concentration":
-            print("Normalizing concentration data by 95th percentile...")
-            xmax = np.quantile(self.X, 0.95, axis=0)
-            xmax[xmax == 0] = 1
-            self.X = self.X / xmax
-            self.X[self.X > 1] = 1
-
-        elif self.preprocess_mode == "concentration":
-            sc.pp.normalize_total(self.adata, target_sum=1)
-            self.X = self.adata.X.toarray()
-        else:
-            raise ValueError("Invalid preprocess mode")
+        counts = self.adata.X
+        if issparse(counts):
+            counts = counts.toarray()
+        self.X = self._preprocess_expression(counts)
 
         # main perturbations to gene variables
         self.gene_perturbations = self.adata.obs[self.pertubation_col].unique()
@@ -119,10 +128,8 @@ class ODEstimator:
         self.U = jnp.array(U)
 
         # compute NNs
-        if "nns" not in self.adata.obsm:
-            if self.pairing_strategy is not None:
-                raise ValueError(f"Invalid pairing strategy: {self.pairing_strategy}")
-            elif self.pairing_strategy == "nn":
+        if self.pairing_strategy == "nn":
+            if "nns" not in self.adata.obsm:
                 print("NNs not found in adata.obsm, computing them...")
                 self.nn_index = compute_nns_in_latent(
                     self.adata,
@@ -131,19 +138,33 @@ class ODEstimator:
                     condition0=self.control_key,
                 )
             else:
-                raise ValueError(f"Invalid pairing strategy: {self.pairing_strategy}")
-        else:
-            print("NNs found in adata.obsm, using them...")
-            self.nn_index = self.adata.obsm["nns"]
+                print("NNs found in adata.obsm, using them...")
+                self.nn_index = self.adata.obsm["nns"]
+        elif self.pairing_strategy == "exact":
+            if "x0" not in self.adata.obsm:
+                raise ValueError("For exact pairing, 'x0' must be in adata.obsm.")
+            self.X0 = self._preprocess_expression(self.adata.obsm["x0"])
+        elif self.pairing_strategy is not None:
+            raise ValueError(f"Invalid pairing strategy: {self.pairing_strategy}")
 
         if self.subset_treated:
             mask_ = (self.adata.obs[self.pertubation_col] != self.control_key).values
             self.adata = self.adata[mask_].copy()
             self.X = self.X[mask_]
             self.U = self.U[mask_]
-            self.nn_index = self.nn_index[mask_]
-        print(self.X.max(1))
+            if self.pairing_strategy == "nn":
+                self.nn_index = self.nn_index[mask_]
+            elif self.pairing_strategy == "exact":
+                self.X0 = self.X0[mask_]
+
         print("shape of X: ", self.X.shape)
+
+        self.x_ = jnp.array(self.X)
+        if self.X0 is not None:
+            self.x0_ = jnp.array(self.X0)
+        self.u_ = jnp.array(self.U)
+        if self.pairing_strategy == "nn":
+            self.nn_index_ = jnp.array(self.nn_index)
 
     def _print_dataset_statistics(self, u_):
         n_perturbed = (u_.sum(axis=1) > 0).sum()
@@ -203,10 +224,9 @@ class ODEstimator:
 
             x_batch = self.x_[batch_indices]
             u_batch = self.u_[batch_indices]
-            nn_batch = self.nn_index_[batch_indices]
 
-            key, neighbor_key = jax.random.split(key)
-            x0_batch = self.get_x0(nn_batch, self.x_, neighbor_key)
+            key, pairing_key = jax.random.split(key)
+            x0_batch = self._get_x0_batch(batch_indices, pairing_key)
 
             if is_training:
                 state, loss_dict, grads = self._train_step(
@@ -263,10 +283,7 @@ class ODEstimator:
         log_every_n_steps=100,
         optimizer=None,
     ):
-        self.x_ = jnp.array(self.X)
-        self.u_ = jnp.array(self.U)
         batch_size_eval = 128
-        self.nn_index_ = jnp.array(self.nn_index)
         n_obs = self.x_.shape[0]
         key = self.random_key
 
@@ -341,11 +358,24 @@ class ODEstimator:
 
         # Clean up temporary attributes
         del self.x_
+        if hasattr(self, "x0_"):
+            del self.x0_
         del self.u_
-        del self.nn_index_
+        if hasattr(self, "nn_index_"):
+            del self.nn_index_
+
+    def _get_x0_batch(self, batch_indices, pairing_key):
+        if self.pairing_strategy == "nn":
+            nn_batch = self.nn_index_[batch_indices]
+            x0_batch = self._sample_from_neighbors(nn_batch, self.x_, pairing_key)
+        elif self.pairing_strategy == "exact":
+            x0_batch = self.x0_[batch_indices]
+        else:
+            x0_batch = self.x_[batch_indices]
+        return x0_batch
 
     @staticmethod
-    def get_x0(knn, x_neighbors, random_key):
+    def _sample_from_neighbors(knn, x_neighbors, random_key):
         """
         Select one random neighbor per row given a k-NN index.
 

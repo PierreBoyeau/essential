@@ -21,3 +21,17 @@ Best trial:
     lambda_prior: 0.016414183992245375
     learning_rate: 0.007941849105679976
     model_class: dynamic_multiplicative
+
+
+Best trial:
+  Value (maximal PRAUC): 0.04021650784776238
+  Best hyperparameters: 
+    lambda_prior: 4.986904864296812e-07
+    learning_rate: 0.0016201885401608317
+    n_epochs: 518
+    model_class: dynamic_cellbox
+
+
+
+- n_obs
+- t
