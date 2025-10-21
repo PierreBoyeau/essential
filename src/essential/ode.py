@@ -282,8 +282,8 @@ class ODEstimator:
         early_stopping_metric="loss",
         log_every_n_steps=100,
         optimizer=None,
+        batch_size_eval=128,
     ):
-        batch_size_eval = 128
         n_obs = self.x_.shape[0]
         key = self.random_key
 
