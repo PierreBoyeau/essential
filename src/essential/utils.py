@@ -3,6 +3,7 @@ import numpy as np
 import json
 
 import sklearn.metrics as metrics
+from skimage.filters import threshold_otsu
 
 
 COLUMNS_TO_KEEP = [
@@ -192,3 +193,39 @@ def load_kegg_pathways():
     df["pathway1"] = df["pathways"].apply(first_pathway)
     df["target_gene"] = df["query_gene"].str.lower()
     return df
+
+
+def evaluate_interactions_on_regulondb(df_ode):
+    """
+    Evaluate a dataframe of predicted interactions against RegulonDB.
+    """
+    ref_db = load_regulondb()
+    valid_regulators = ref_db["regulator_gene"].unique()
+    df_ode_reversed = df_ode.rename(
+        columns={"target_gene": "regulator_gene", "regulator_gene": "target_gene"}
+    )
+
+    def metrics_for_df(df):
+        merged_ = df.merge(ref_db, on=["target_gene", "regulator_gene"], how="left").assign(
+            is_evidence=lambda x: x["is_evidence"].fillna(False),
+            score_abs=lambda x: np.abs(x["score"]),
+        )
+        merged_ = merged_.loc[lambda x: x["regulator_gene"].isin(valid_regulators)]
+        otsu_thresh = threshold_otsu(merged_["score_abs"].values)
+        merged_["decision_otsu"] = merged_["score_abs"].values > otsu_thresh
+        merged_["decision_1e-3"] = merged_["score_abs"].values > 1e-3
+        merged_["decision_1e-1"] = merged_["score_abs"].values > 1e-1
+        merged_["decision_5e-1"] = merged_["score_abs"].values > 5e-1
+        metrics_res = compute_metrics(
+            merged_,
+            score_col="score",
+            gt_col="is_evidence",
+            decision_cols=["decision_otsu", "decision_1e-3", "decision_1e-1", "decision_5e-1"],
+        )
+        return metrics_res
+
+    metrics_res = metrics_for_df(df_ode)
+    metrics_res_reversed = metrics_for_df(df_ode_reversed)
+    metrics_res_reversed = {f"reversed_{k}": v for k, v in metrics_res_reversed.items()}
+    metrics_res.update(metrics_res_reversed)
+    return metrics_res
