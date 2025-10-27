@@ -12,6 +12,7 @@ class DynamicCellboxModel(BaseModel):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
         self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
 
+        # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()

@@ -4,6 +4,7 @@ from .multiplicative_knockdown import MultiplicativeKnockdownModel
 from .multiplicative_knockdown_with_basal import MultiplicativeKnockdownWithBasal
 from .dynamic_cellbox import DynamicCellboxModel
 from .dynamic_cellboxlowdim import DynamicCellboxLowDimModel
+from .dynamic_cellboxlowdim2 import DynamicCellboxLowDimModel2
 from .dynamic_hardmultiplicative import DynamicHardMultiplicativeModel
 from .dynamic_multiplicative import DynamicMultiplicativeModel
 from .dynamic_linear import DynamicLinearModel
@@ -19,6 +20,7 @@ MODEL_REGISTRY = {
     "multiplicative_knockdown_with_basal": MultiplicativeKnockdownWithBasal,
     "dynamic_cellbox": DynamicCellboxModel,
     "dynamic_cellboxlowdim": DynamicCellboxLowDimModel,
+    "dynamic_cellboxlowdim2": DynamicCellboxLowDimModel2,
     "dynamic_hardmultiplicative": DynamicHardMultiplicativeModel,
     "dynamic_multiplicative": DynamicMultiplicativeModel,
     "dynamic_linear": DynamicLinearModel,

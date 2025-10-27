@@ -111,7 +111,7 @@ def load_regulondb():
     return ref_db
 
 
-def load_regulondb_full():
+def load_regulondb_full(drop_duplicates=True):
     """
     Load and preprocess RegulonDB regulatory interactions with expanded gene targets.
 
@@ -162,7 +162,8 @@ def load_regulondb_full():
         .loc[:, COLUMNS_TO_KEEP]
         .dropna(subset=["target_gene"])  # Remove rows with no valid target genes
     )
-
+    if drop_duplicates:
+        ref_db = ref_db.drop_duplicates(subset=["target_gene", "regulator_gene"], keep="first")
     return ref_db
 
 
@@ -318,7 +319,7 @@ def evaluate_interactions_on_regulondb(df_ode):
     """
     Evaluate a dataframe of predicted interactions against RegulonDB.
     """
-    ref_db = load_regulondb()
+    ref_db = load_regulondb_full(drop_duplicates=True)
     valid_regulators = ref_db["regulator_gene"].unique()
     df_ode_reversed = df_ode.rename(
         columns={"target_gene": "regulator_gene", "regulator_gene": "target_gene"}

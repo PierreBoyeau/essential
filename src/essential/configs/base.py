@@ -22,7 +22,7 @@ def get_config():
     config.estimator = config_dict.ConfigDict()
     config.estimator.model_class = "dynamic_cellbox"
     config.estimator.expression_type = "concentration"
-    config.estimator.pairing_strategy = None
+    config.estimator.pairing_strategy = "nn"
     config.estimator.subset_treated = True
     config.estimator.model_kwargs = config_dict.ConfigDict()
     config.estimator.model_kwargs.lambda_prior = 1.0

@@ -7,7 +7,7 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicCellboxLowDimModel(BaseModel):
+class DynamicCellboxLowDimModel2(BaseModel):
     n_latent: int
 
     def setup(self):
@@ -29,14 +29,17 @@ class DynamicCellboxLowDimModel(BaseModel):
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         bvec = self.get_bvec()
 
-        def solve_single(x_i, u_i, t_i):
+        z0 = jnp.einsum("fg,ng->nf", self.loadings_, x0)
+
+        def solve_single(z0_i, u_i, t_i):
             indic_times_param_i = u_i * bvec
             perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
 
-            def ode_fn(t, y, args):
-                conc_contribution = jnp.einsum("fj,j->f", self.loadings_, y)
-                conc_contribution = jnp.einsum("gf,f->g", self.factors_, conc_contribution)
-                return conc_contribution + perturb_i
+            Amat_z = self.loadings_ @ self.factors_
+            p_vec = self.loadings_ @ perturb_i
+
+            def ode_fn(t, z, args):
+                return Amat_z @ z + p_vec
 
             ode_term = diffrax.ODETerm(ode_fn)
             sol = diffrax.diffeqsolve(
@@ -45,13 +48,15 @@ class DynamicCellboxLowDimModel(BaseModel):
                 t0=0.0,
                 t1=jnp.squeeze(t_i),
                 dt0=0.1,
-                y0=x_i,
+                y0=z0_i,
                 saveat=self.saveat,
                 adjoint=self.adjoint,
             )
             return sol.ys[-1]
 
-        return jax.vmap(solve_single, in_axes=(0, 0, 0))(x0, u, t)
+        zt = jax.vmap(solve_single, in_axes=(0, 0, 0))(z0, u, t)
+        x = jnp.einsum("gf,nf->ng", self.factors_, zt)
+        return x
 
     def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
         A_mat = self.get_Amat()

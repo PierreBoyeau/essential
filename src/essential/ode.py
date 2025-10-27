@@ -32,9 +32,9 @@ class ODEstimator:
     def __init__(
         self,
         adata: sc.AnnData,
-        model_class="steady_state_forcing",
-        expression_type="normalized_concentration",
-        pairing_strategy=None,
+        model_class,
+        expression_type,
+        pairing_strategy,
         subset_treated=False,
         model_kwargs=None,
     ):
@@ -144,7 +144,7 @@ class ODEstimator:
             if "x0" not in self.adata.obsm:
                 raise ValueError("For exact pairing, 'x0' must be in adata.obsm.")
             self.X0 = self._preprocess_expression(self.adata.obsm["x0"])
-        elif self.pairing_strategy is not None:
+        elif self.pairing_strategy is None:
             raise ValueError(f"Invalid pairing strategy: {self.pairing_strategy}")
 
         if self.subset_treated:

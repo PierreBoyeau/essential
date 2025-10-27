@@ -38,8 +38,8 @@ def test_cellboxlowdim_model():
     ode_model = ODEstimator(
         adata_,
         expression_type="concentration",
-        model_kwargs={"lambda_prior": 1.5e-7},
-        model_class="dynamic_cellbox",
+        model_kwargs={"lambda_prior": 1.5e-7, "n_latent": 64},
+        model_class="dynamic_cellboxlowdim2",
         pairing_strategy="nn",
     )
     ode_model.fit(learning_rate=1e-2, n_epochs=1, log_every_n_steps=10)
