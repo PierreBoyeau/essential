@@ -14,6 +14,7 @@ class DynamicMultiplicativeModel(BaseModel):
         self.perturb_decay_ = self.param("perturb_decay_", normal(), (self.n_tfs))
 
         self.solver = diffrax.Heun()
+        # self.solver = diffrax.Tsit5()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 

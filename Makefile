@@ -23,7 +23,7 @@ build:
 			.; \
 	fi
 
-push:
+push: build
 	@echo "Pushing image: ${IMAGE_NAME}:latest and ${IMAGE_NAME}:${GIT_COMMIT}"
 	docker push "${IMAGE_NAME}:latest"
 	docker push "${IMAGE_NAME}:${GIT_COMMIT}"

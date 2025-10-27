@@ -401,7 +401,7 @@ class ODEstimator:
         x0_batch = x_neighbors[rdm_neighbor]
         return x0_batch
 
-    def get_interaction_matrix(self, return_square=True, delta=None):
+    def get_interaction_matrix(self, return_square=True, delta=None, zero_diag=False):
         """Extract the learned gene-gene interaction matrix from the trained model.
 
         This method retrieves the interaction matrix (Amat) that represents regulatory
@@ -452,6 +452,8 @@ class ODEstimator:
         Amat_ = pd.DataFrame(
             processed_Amat, index=self.adata.var_names, columns=self.adata.var_names
         )
+        if zero_diag:
+            np.fill_diagonal(Amat_.values, 0.0)
         if return_square:
             return Amat_
 
@@ -472,3 +474,36 @@ class ODEstimator:
         if delta is not None:
             Amat_unstack.loc[:, "decision"] = Amat_unstack["score"] > delta
         return Amat_unstack
+
+    def get_results(self, delta, ref_db, transpose_amat=False):
+        assert "target_gene" in ref_db.columns and "regulator_gene" in ref_db.columns
+        assert "is_evidence" in ref_db.columns
+
+        df = self.get_interaction_matrix(return_square=False, delta=delta)
+        if transpose_amat:
+            print("Transposing Amat...")
+            df = df.rename(
+                columns={"target_gene": "regulator_gene", "regulator_gene": "target_gene"}
+            )
+        df = df.merge(ref_db, on=["target_gene", "regulator_gene"], how="left").assign(
+            is_evidence=lambda x: x["is_evidence"].fillna(False),
+            is_tp=lambda x: (x["is_evidence"] & x["decision"]).astype(int),
+        )
+        return df
+
+    @staticmethod
+    def process_data(adata):
+        adata.X = adata.layers["counts"].copy()
+        sc.pp.normalize_total(adata, target_sum=1)
+        adata.layers["concentration"] = adata.X.copy()
+        adata.X = adata.layers["counts"].copy()
+        if "nns" not in adata.obsm:
+            nns = compute_nns_in_latent(
+                adata,
+                batch_key="rt_bc",
+                condition_key="consensus_target",
+                condition0="nontargeting",
+                K=5,
+            )
+            adata.obsm["nns"] = nns
+        return adata

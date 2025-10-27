@@ -1,78 +1,96 @@
+"""ODE estimation script using ml-collections for configuration management.
+
+This script fits ODE models to perturbation sequencing data using the ODEstimator class.
+Configurations are managed via ml-collections config files, with support for command-line
+overrides of any parameter.
+
+Usage:
+    python ode_script.py --config=configs/models/dynamic_cellbox.py --output_path=outputs/
+    
+    # With overrides:
+    python ode_script.py --config=configs/models/dynamic_cellbox.py \
+        --config.processing.consolidated_cluster=CD4 \
+        --config.training.n_epochs=500 \
+        --output_path=outputs/
+"""
+
 import scanpy as sc
 from essential.ode import ODEstimator
-import argparse
+from ml_collections import config_flags
+from absl import app, flags
 import hashlib
-import pandas as pd
 import os
 import json
 import numpy as np
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--adata_path",
-        type=str,
-        default="../data/250516_TF_perturbseq/250516_TF_perturbseq.annotated.h5ad",
-    )
-    parser.add_argument("--preprocess_mode", type=str, default="normalized_concentration")
-    parser.add_argument("--model_class", type=str, default="steady_state_forcing")
-    parser.add_argument("--lambda_prior", type=float, default=1e0)
-    parser.add_argument("--rt_bc", type=str, default="all")
-    parser.add_argument("--consolidated_cluster", type=str, default="all")
-    parser.add_argument("--output_path", type=str, required=True)
-    return parser.parse_args()
+FLAGS = flags.FLAGS
+config_flags.DEFINE_config_file("config", None, "Path to config file", lock_config=False)
+flags.DEFINE_string("output_path", None, "Output path for results")
+flags.mark_flag_as_required("config")
+flags.mark_flag_as_required("output_path")
 
 
-def save_config(kwargs, output_path, tag=None):
-    if tag is not None:
-        kwargs["tag"] = tag
-    with open(output_path, "w") as f:
-        json.dump(kwargs, f, indent=4)
-    return tag
+def get_hash(config):
+    """Generate hash from config, excluding paths.
+
+    Args:
+        config: ConfigDict containing experiment configuration
+
+    Returns:
+        str: 8-character hash of the configuration
+    """
+    config_dict_copy = config.to_dict()
+    # Exclude paths from hash to ensure reproducibility
+    hash_dict = {
+        k: v
+        for k, v in config_dict_copy.items()
+        if k not in ["output_path"] and not (k == "processing" and "adata_path" in str(v))
+    }
+    # Also exclude adata_path from processing if it exists
+    if "processing" in hash_dict and isinstance(hash_dict["processing"], dict):
+        hash_dict["processing"] = {
+            k: v for k, v in hash_dict["processing"].items() if k != "adata_path"
+        }
+
+    str_config = json.dumps(hash_dict, sort_keys=True)
+    return hashlib.sha256(str_config.encode()).hexdigest()[:8]
 
 
-def get_hash(kwargs):
-    hash_kwargs = {k: v for k, v in kwargs.items() if k not in ["adata_path", "output_path"]}
-    str_kwargs = json.dumps(hash_kwargs, sort_keys=True)
-    tag = hashlib.sha256(str_kwargs.encode()).hexdigest()[:8]
-    return tag
+def main(_):
+    """Main execution function."""
+    config = FLAGS.config
+    config.output_path = FLAGS.output_path
 
 
-def main():
-    args = parse_args()
-    kwargs = vars(args)
-    config_hash = get_hash(kwargs)
-    folder_path = os.path.join(kwargs["output_path"], config_hash)
+    config_hash = get_hash(config)
+    folder_path = os.path.join(config.output_path, config_hash)
     os.makedirs(folder_path, exist_ok=True)
 
-    adata = sc.read_h5ad(kwargs["adata_path"])
-    if kwargs["rt_bc"] != "all":
-        adata = adata[adata.obs["rt_bc"] == kwargs["rt_bc"]].copy()
-    if kwargs["consolidated_cluster"] != "all":
-        adata = adata[adata.obs["consolidated_cluster"] == kwargs["consolidated_cluster"]].copy()
+    # data processing
+    adata = sc.read_h5ad(config.processing.adata_path)
+    if config.processing.rt_bc != "all":
+        adata = adata[adata.obs["rt_bc"] == config.processing.rt_bc].copy()
+    if config.processing.consolidated_cluster != "all":
+        adata = adata[
+            adata.obs["consolidated_cluster"] == config.processing.consolidated_cluster
+        ].copy()
 
-    model_kwargs = {"lambda_prior": kwargs["lambda_prior"]}
-    estimator = ODEstimator(
-        adata,
-        expression_type=kwargs["preprocess_mode"],
-        model_kwargs=model_kwargs,
-        model_class=kwargs["model_class"],
-        subset_treated=True,
-    )
-    estimator.fit(
-        learning_rate=1e-3,
-        n_epochs=100,
-        early_stopping_patience=3,
-        early_stopping_metric="reco_loss",
-        log_every_n_steps=1,
-        batch_size=8000,
-    )
+    # model fitting
+    estimator = ODEstimator(adata, **config.estimator.to_dict())
+    estimator.fit(**config.training.to_dict())
+
     a_mat = estimator.get_interaction_matrix()
-    hash_ = save_config(kwargs, os.path.join(folder_path, "config.json"), config_hash)
-    output_file = os.path.join(folder_path, f"Amat.npz")
+    config_to_save = config.to_dict()
+    config_to_save["config_hash"] = config_hash
+    config_path = os.path.join(folder_path, "config.json")
+    with open(config_path, "w") as f:
+        json.dump(config_to_save, f, indent=4)
+
+    # Save interaction matrix
+    output_file = os.path.join(folder_path, "Amat.npz")
     np.savez_compressed(output_file, matrix=a_mat.values, genes=a_mat.columns.to_numpy())
 
 
 if __name__ == "__main__":
-    main()
+    app.run(main)

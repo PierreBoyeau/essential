@@ -17,6 +17,70 @@ COLUMNS_TO_KEEP = [
 PATH_TO_REGULONDB = "/workspace/data/RegulonDB/RISet.tsv"
 
 
+def _parse_gene_group(gene_group):
+    """
+    Parse a gene group string into individual gene names.
+
+    Rules:
+    - If 0 or 1 uppercase letter: single gene (e.g., 'nadE', 'sdhX', 'uof')
+    - If 2+ consecutive uppercase letters at end: gene set (e.g., 'gspCDEF' → gspC, gspD, gspE, gspF)
+
+    Parameters
+    ----------
+    gene_group : str
+        A gene or gene group identifier.
+
+    Returns
+    -------
+    list of str
+        List of individual gene names.
+    """
+    if not gene_group:
+        return []
+    import re
+
+    match = re.search(r"([A-Z]{2,})$", gene_group)
+
+    if match:
+        uppercase_suffix = match.group(1)
+        prefix = gene_group[: match.start()]
+        return [prefix + letter for letter in uppercase_suffix]
+    else:
+        return [gene_group]
+
+
+def _parse_target_genes(target_tu_or_gene):
+    """
+    Extract gene list from targetTuOrGene column.
+
+    Format: 'RDBECOLITUCXXXXX:gene1-genegroup2-gene3'
+    where genegroups may be compact notation like 'sdhCDAB' → [sdhC, sdhD, sdhA, sdhB]
+
+    Parameters
+    ----------
+    target_tu_or_gene : str
+        Target TU or gene identifier from RegulonDB.
+
+    Returns
+    -------
+    list of str
+        List of individual gene names.
+    """
+    if pd.isna(target_tu_or_gene):
+        return []
+
+    if ":" not in target_tu_or_gene:
+        return []
+
+    gene_part = target_tu_or_gene.split(":", 1)[1]
+    gene_groups = gene_part.split("-")
+    all_genes = []
+    for group in gene_groups:
+        all_genes.extend(_parse_gene_group(group))
+
+    return all_genes
+
+
 def load_regulondb():
     """
     Load and preprocess RegulonDB TF-promoter interactions.
@@ -44,6 +108,61 @@ def load_regulondb():
         )
         .loc[:, COLUMNS_TO_KEEP]
     )
+    return ref_db
+
+
+def load_regulondb_full():
+    """
+    Load and preprocess RegulonDB regulatory interactions with expanded gene targets.
+
+    Unlike `load_regulondb()`, this function parses the `targetTuOrGene` column
+    to extract all individual genes from transcription units, creating one row
+    per regulator-target gene pair. This properly handles polycistronic operons
+    and compact gene notation (e.g., 'gspCDEF' → gspC, gspD, gspE, gspF).
+
+    Includes all regulator types: transcription factors, sRNAs, and compounds.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns: `tf_promoter`, `target_gene`, `regulator_gene`,
+        `is_evidence`, `confidenceLevel`.
+    """
+    ref_db = pd.read_csv(PATH_TO_REGULONDB, skiprows=44, sep="\t")
+    ref_db.columns = ref_db.columns.str.replace(r"^\d+\)", "", regex=True)
+
+    # Filter for all regulator types
+    valid_ri_types = [
+        "tf-promoter",
+        "tf-gene",
+        "tf-tu",
+        "srna-promoter",
+        "srna-gene",
+        "srna-tu",
+        "compound-promoter",
+        "compound-gene",
+        "compound-tu",
+    ]
+
+    ref_db = (
+        ref_db.loc[lambda x: x["riType"].isin(valid_ri_types)]
+        .assign(
+            target_genes=lambda x: x["targetTuOrGene"].apply(_parse_target_genes),
+            regulator_gene=lambda x: x["regulatorName"].str.lower(),
+            # regulator_gene=lambda x: x["regulatorName"],
+        )
+        .explode("target_genes")  # Create one row per target gene
+        .rename(columns={"target_genes": "target_gene"})
+        .assign(
+            target_gene=lambda x: x["target_gene"].str.lower(),
+            # target_gene=lambda x: x["target_gene"],
+            tf_promoter=lambda x: x["regulator_gene"] + "_" + x["target_gene"],
+            is_evidence=True,
+        )
+        .loc[:, COLUMNS_TO_KEEP]
+        .dropna(subset=["target_gene"])  # Remove rows with no valid target genes
+    )
+
     return ref_db
 
 
