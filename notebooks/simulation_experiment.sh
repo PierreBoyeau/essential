@@ -1,13 +1,22 @@
-SAVE_DIR="/workspace/results/simulation_experiment_1021_B"
+SAVE_DIR="/workspace/results/simulation_experiment_1021_C"
 DEFAULT_NOBS=100
 DEFAULT_NPERTURBED=10
 DEFAULT_T=0.01
 DEFAULT_NGENES=100
-DEFAULT_SPARSITY=0.003
+DEFAULT_SPARSITY=0.1
+
+# DEFAULT_SPARSITY=0.003
+
+
+python simulation_run.py --n_obs $DEFAULT_NOBS --tag "deleteme" --save_dir $SAVE_DIR --random_seed 0 \
+--n_genes $DEFAULT_NGENES \
+--n_perturbed $DEFAULT_NPERTURBED \
+--t $DEFAULT_T \
+--sparsity $DEFAULT_SPARSITY
 
 
 for random_seed in $(seq 0 2); do
-    for n_obs in 50 100 200 400 800; do
+    for n_obs in 50 100 200 400; do
         python simulation_run.py --n_obs $n_obs --tag "n_obs" --save_dir $SAVE_DIR --random_seed $random_seed \
         --n_genes $DEFAULT_NGENES \
         --n_perturbed $DEFAULT_NPERTURBED \
@@ -27,6 +36,7 @@ for random_seed in $(seq 0 2); do
         python simulation_run.py --t $t --tag "t" --save_dir $SAVE_DIR --random_seed $random_seed \
         --n_obs $DEFAULT_NOBS \
         --n_genes $DEFAULT_NGENES \
-        --n_perturbed $DEFAULT_NPERTURBED
+        --n_perturbed $DEFAULT_NPERTURBED \
+        --sparsity $DEFAULT_SPARSITY
     done
 done

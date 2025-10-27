@@ -19,6 +19,29 @@ import json
 import hashlib
 
 
+def estimate_ode(adata, Amat_gt, model_class="dynamic_cellbox"):
+    estimator = ODEstimator(
+        adata,
+        model_class=model_class,
+        pairing_strategy="exact",
+        subset_treated=True,
+        expression_type="none",
+    )
+    estimator.fit(n_epochs=1000, batch_size=10, batch_size_eval=10)
+    Amat_pred = estimator.get_interaction_matrix()
+
+    corr_ = stats.pearsonr(Amat_gt.flatten(), Amat_pred.values.flatten())
+    corr_reversed = stats.pearsonr(Amat_gt.flatten(), Amat_pred.values.T.flatten())
+    corr_dict = {
+        "model_class": model_class,
+        "corr_statistic": float(corr_[0]),
+        "corr_pvalue": float(corr_[1]),
+        "corr_reversed_statistic": float(corr_reversed[0]),
+        "corr_reversed_pvalue": float(corr_reversed[1]),
+    }
+    return corr_dict
+
+
 @click.command()
 @click.option("--n_obs", default=100, help="Number of observations.")
 @click.option("--n_genes", default=100, help="Number of genes.")
@@ -55,26 +78,19 @@ def main(n_obs, n_genes, n_perturbed, t, sparsity, random_seed, tag, save_dir):
     adata = simulator.simulate(n_obs, batch_size=100, t=t)
     Amat_gt = simulator.Amat
 
-    estimator = ODEstimator(
-        adata,
-        model_class="dynamic_cellbox",
-        pairing_strategy="exact",
-        subset_treated=True,
-        expression_type="none",
+    dynamic_cellbox_corr_dict = estimate_ode(adata, Amat_gt, model_class="dynamic_cellbox")
+    dynamic_multiplicative_corr_dict = estimate_ode(
+        adata, Amat_gt, model_class="dynamic_multiplicative"
     )
-    estimator.fit(n_epochs=1000, batch_size=10, batch_size_eval=10)
-    Amat_pred = estimator.get_interaction_matrix()
-
-    corr_ = stats.pearsonr(Amat_gt.flatten(), Amat_pred.values.flatten())
-    corr_reversed = stats.pearsonr(Amat_gt.flatten(), Amat_pred.values.T.flatten())
-    print(f"Correlation: {corr_}")
-    print(f"Correlation (reversed): {corr_reversed}")
 
     results = {
         "config": config,
-        "corr": {"statistic": float(corr_[0]), "pvalue": float(corr_[1])},
-        "corr_reversed": {"statistic": float(corr_reversed[0]), "pvalue": float(corr_reversed[1])},
+        "results": [
+            dynamic_cellbox_corr_dict,
+            dynamic_multiplicative_corr_dict,
+        ],
     }
+    print(results)
 
     with open(os.path.join(output_dir, "results.json"), "w") as f:
         json.dump(results, f, indent=4)
