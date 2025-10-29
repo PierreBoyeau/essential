@@ -78,8 +78,10 @@ class ODESimulator:
 
         xt = np.concatenate(xpred_, axis=0)
         var_names = ["gene_" + str(i) for i in range(self.n_genes)]
-        perturbations = np.array(var_names)[u_1d]
-        perturbations[control_indices] = "nontargeting"
+        perturbations_list = np.array(var_names)[u_1d].tolist()
+        for i in control_indices:
+            perturbations_list[i] = "nontargeting"
+        perturbations = np.array(perturbations_list)
 
         adata_ = sc.AnnData(X=xt, var=pd.DataFrame(index=var_names))
         adata_.layers["counts"] = adata_.X.copy()
