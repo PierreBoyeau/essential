@@ -10,6 +10,7 @@ from ml_collections import config_dict
 def get_config():
     """Returns the base configuration for ODE experiments."""
     config = config_dict.ConfigDict()
+    config.tag = None
 
     # Data processing configuration
     config.processing = config_dict.ConfigDict()
@@ -23,6 +24,7 @@ def get_config():
     config.estimator.model_class = "dynamic_cellbox"
     config.estimator.expression_type = "concentration"
     config.estimator.pairing_strategy = "nn"
+    config.estimator.recompute_nns = True
     config.estimator.subset_treated = True
     config.estimator.model_kwargs = config_dict.ConfigDict()
     config.estimator.model_kwargs.lambda_prior = 1.0
