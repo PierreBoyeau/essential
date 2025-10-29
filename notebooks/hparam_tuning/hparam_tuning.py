@@ -2,17 +2,16 @@ from essential.gpu_utils import select_best_gpus
 
 select_best_gpus(n_gpus=1)
 
+import numpy as np
 import scanpy as sc
 import optuna
 from essential.ode import ODEstimator
-from essential.utils import evaluate_interactions_on_regulondb
+from essential.utils import evaluate_interactions_on_regulondb, load_regulondb_full
 from essential.configs.base import get_config
 
 
 # Load base configuration
 config = get_config()
-
-# Load and preprocess data
 adata = sc.read_h5ad(config.processing.adata_path)
 if config.processing.rt_bc != "all":
     adata = adata[adata.obs["rt_bc"] == config.processing.rt_bc].copy()
@@ -38,8 +37,8 @@ def objective(trial):
     # Define the hyperparameter search space
     lambda_prior = trial.suggest_float("lambda_prior", 1e-7, 1e0, log=True)
     learning_rate = trial.suggest_float("learning_rate", 1e-3, 1e-2, log=True)
-    # n_epochs = trial.suggest_int("n_epochs", 10, 1000)
-    n_epochs = 25
+    n_epochs = trial.suggest_int("n_epochs", 10, 500)
+    # n_epochs = 5
     model_class = trial.suggest_categorical(
         "model_class",
         [
@@ -59,10 +58,27 @@ def objective(trial):
     ode_model = ODEstimator(adata_, **trial_config.estimator.to_dict())
     ode_model.fit(**trial_config.training.to_dict())
 
-    df_ode = ode_model.get_interaction_matrix(return_square=False)
-    metrics = evaluate_interactions_on_regulondb(df_ode)
-    prauc = metrics["pr_auc"]
-    return prauc
+    # df_ode = ode_model.get_interaction_matrix(return_square=False)
+    # df_ode = df_ode
+    # metrics = evaluate_interactions_on_regulondb(df_ode)
+    # prauc = metrics["pr_auc"]
+    # reversed_prauc = metrics["reversed_pr_auc"]
+    # return np.maximum(prauc, reversed_prauc)
+
+    ref_db = load_regulondb_full(drop_duplicates=True)
+    v1 = (
+        ode_model.get_results(delta=0.0, ref_db=ref_db, transpose_amat=True)
+        .sort_values("score", ascending=False)
+        .head(3000)["is_tp"]
+        .sum()
+    )
+    v2 = (
+        ode_model.get_results(delta=0.0, ref_db=ref_db, transpose_amat=False)
+        .sort_values("score", ascending=False)
+        .head(3000)["is_tp"]
+        .sum()
+    )
+    return np.maximum(v1, v2)
 
 
 def print_callback(study, trial):
@@ -72,13 +88,13 @@ def print_callback(study, trial):
 
 study = optuna.create_study(
     direction="maximize",
-    storage="sqlite:///hparam_tuning2.db",
-    study_name="hparam_tuning2",
+    storage="sqlite:///hparam_tuning4.db",
+    study_name="hparam_tuning4",
     load_if_exists=True,
 )
 study.optimize(
     objective,
-    n_trials=100,
+    n_trials=50,
     callbacks=[print_callback],
 )
 
