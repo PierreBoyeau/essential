@@ -105,6 +105,9 @@ def load_regulondb():
             target_gene=lambda x: x["firstGene"].str.lower(),
             regulator_gene=lambda x: x["regulatorName"].str.lower(),
             is_evidence=True,
+            is_evidence_weak=lambda x: x["confidenceLevel"] == "W",
+            is_evidence_strong=lambda x: x["confidenceLevel"] == "S",
+            is_evidence_confirmed=lambda x: x["confidenceLevel"] == "C",
         )
         .loc[:, COLUMNS_TO_KEEP]
     )
@@ -163,7 +166,18 @@ def load_regulondb_full(drop_duplicates=True):
         .dropna(subset=["target_gene"])  # Remove rows with no valid target genes
     )
     if drop_duplicates:
-        ref_db = ref_db.drop_duplicates(subset=["target_gene", "regulator_gene"], keep="first")
+        confidence_order = ["W", "S", "C"]
+        ref_db["confidenceLevel"] = pd.Categorical(
+            ref_db["confidenceLevel"], categories=confidence_order, ordered=True
+        )
+        ref_db = ref_db.sort_values("confidenceLevel").drop_duplicates(
+            subset=["target_gene", "regulator_gene"], keep="last"
+        )
+    ref_db = ref_db.assign(
+        is_evidence_weak=lambda x: x["confidenceLevel"] == "W",
+        is_evidence_strong=lambda x: x["confidenceLevel"] == "S",
+        is_evidence_confirmed=lambda x: x["confidenceLevel"] == "C",
+    )
     return ref_db
 
 
@@ -315,13 +329,17 @@ def load_kegg_pathways():
     return df
 
 
-def evaluate_interactions_on_regulondb(df_ode):
+def evaluate_interactions_on_regulondb(df_ode, ignore_selfregulators=False):
     """
     Evaluate a dataframe of predicted interactions against RegulonDB.
     """
+    df_ode_ = df_ode.copy()
+    if ignore_selfregulators:
+        df_ode_ = df_ode_.loc[lambda x: x["regulator_gene"] != x["target_gene"]]
+
     ref_db = load_regulondb_full(drop_duplicates=True)
     valid_regulators = ref_db["regulator_gene"].unique()
-    df_ode_reversed = df_ode.rename(
+    df_ode_reversed = df_ode_.rename(
         columns={"target_gene": "regulator_gene", "regulator_gene": "target_gene"}
     )
 
@@ -344,7 +362,7 @@ def evaluate_interactions_on_regulondb(df_ode):
         )
         return metrics_res
 
-    metrics_res = metrics_for_df(df_ode)
+    metrics_res = metrics_for_df(df_ode_)
     metrics_res_reversed = metrics_for_df(df_ode_reversed)
     metrics_res_reversed = {f"reversed_{k}": v for k, v in metrics_res_reversed.items()}
     metrics_res.update(metrics_res_reversed)
