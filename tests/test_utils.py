@@ -1,4 +1,4 @@
-from essential.utils import _parse_gene_group
+from essential.utils import _parse_gene_group, load_regulondb_full
 
 
 def test_parse_gene_group_single_gene():
@@ -59,3 +59,7 @@ def test_parse_gene_group_edge_cases():
 
     # Empty string
     assert _parse_gene_group("") == []
+
+
+def test_regulondb_full():
+    ref_db = load_regulondb_full()
