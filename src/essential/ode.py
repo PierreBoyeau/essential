@@ -20,11 +20,15 @@ def compute_nns_in_latent(adata, batch_key, condition_key, condition0, K=5):
     model = SCVI(adata)
     model.train()
     z = model.get_latent_representation()
-    z0 = z[(adata.obs[condition_key] == condition0).values]
+
+    condition_mask = (adata.obs[condition_key] == condition0).values
+    z0 = z[condition_mask]
+    indices_in_z = np.where(condition_mask)[0]
 
     nn_algo = NearestNeighbors(n_neighbors=K, algorithm="auto")
     nn_algo.fit(z0)
-    nns = nn_algo.kneighbors(z, return_distance=False)
+    nns_in_z0 = nn_algo.kneighbors(z, return_distance=False)
+    nns = indices_in_z[nns_in_z0]
     return nns
 
 
@@ -37,10 +41,14 @@ class ODEstimator:
         pairing_strategy,
         subset_treated=False,
         model_kwargs=None,
+        recompute_nns=False,
     ):
         self.adata = adata.copy()
         self.preprocess_mode = expression_type
+        if pairing_strategy not in ["nn", "exact", None]:
+            raise ValueError(f"Invalid pairing strategy: {pairing_strategy}")
         self.pairing_strategy = pairing_strategy
+        self.recompute_nns = recompute_nns
         self.subset_treated = subset_treated
 
         self.X = None
@@ -54,6 +62,7 @@ class ODEstimator:
         self.batch_key = "rt_bc"
         self.control_key = "nontargeting"
         self.nns = None
+        self.nn_index = None
         self._prepare_data()
         self._print_dataset_statistics(self.U)
 
@@ -129,8 +138,11 @@ class ODEstimator:
 
         # compute NNs
         if self.pairing_strategy == "nn":
-            if "nns" not in self.adata.obsm:
-                print("NNs not found in adata.obsm, computing them...")
+            if self.recompute_nns or "nns" not in self.adata.obsm:
+                if self.recompute_nns:
+                    print("Forcing recomputation of NNs for pairing...")
+                else:
+                    print("NNs not found in adata.obsm, computing them...")
                 self.nn_index = compute_nns_in_latent(
                     self.adata,
                     batch_key=self.batch_key,
@@ -140,11 +152,14 @@ class ODEstimator:
             else:
                 print("NNs found in adata.obsm, using them...")
                 self.nn_index = self.adata.obsm["nns"]
+
         elif self.pairing_strategy == "exact":
             if "x0" not in self.adata.obsm:
                 raise ValueError("For exact pairing, 'x0' must be in adata.obsm.")
             self.X0 = self._preprocess_expression(self.adata.obsm["x0"])
         elif self.pairing_strategy is None:
+            print("No pairing strategy specified.")
+        else:
             raise ValueError(f"Invalid pairing strategy: {self.pairing_strategy}")
 
         if self.subset_treated:
@@ -370,8 +385,10 @@ class ODEstimator:
             x0_batch = self._sample_from_neighbors(nn_batch, self.x_, pairing_key)
         elif self.pairing_strategy == "exact":
             x0_batch = self.x0_[batch_indices]
+        elif self.pairing_strategy is None:
+            x0_batch = None
         else:
-            x0_batch = self.x_[batch_indices]
+            raise ValueError(f"Invalid pairing strategy: {self.pairing_strategy}")
         return x0_batch
 
     @staticmethod
@@ -452,13 +469,20 @@ class ODEstimator:
         Amat_ = pd.DataFrame(
             processed_Amat, index=self.adata.var_names, columns=self.adata.var_names
         )
+        return ODEstimator.process_interaction_matrix(
+            Amat_, return_square=return_square, delta=delta, zero_diag=zero_diag
+        )
+
+    @staticmethod
+    def process_interaction_matrix(amat_df, return_square=True, delta=None, zero_diag=False):
+        amat_df = amat_df.copy()
         if zero_diag:
-            np.fill_diagonal(Amat_.values, 0.0)
+            np.fill_diagonal(amat_df.values, 0.0)
         if return_square:
-            return Amat_
+            return amat_df
 
         Amat_unstack = (
-            Amat_.unstack()
+            amat_df.unstack()
             .to_frame("signed_score")
             .reset_index()
             # .rename(columns={"level_0": "target_gene", "level_1": "regulator_gene"})
@@ -476,10 +500,14 @@ class ODEstimator:
         return Amat_unstack
 
     def get_results(self, delta, ref_db, transpose_amat=False):
+        df = self.get_interaction_matrix(return_square=False, delta=delta)
+        return ODEstimator.get_results_from_interactions(df, ref_db, transpose_amat)
+
+    @staticmethod
+    def get_results_from_interactions(df, ref_db, transpose_amat=False):
         assert "target_gene" in ref_db.columns and "regulator_gene" in ref_db.columns
         assert "is_evidence" in ref_db.columns
 
-        df = self.get_interaction_matrix(return_square=False, delta=delta)
         if transpose_amat:
             print("Transposing Amat...")
             df = df.rename(
