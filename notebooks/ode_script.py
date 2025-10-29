@@ -14,6 +14,10 @@ Usage:
         --output_path=outputs/
 """
 
+from essential.gpu_utils import select_best_gpus
+
+select_best_gpus(n_gpus=1)
+
 import scanpy as sc
 from essential.ode import ODEstimator
 from ml_collections import config_flags
@@ -62,6 +66,7 @@ def main(_):
     config = FLAGS.config
     config.output_path = FLAGS.output_path
 
+    print(config)
 
     config_hash = get_hash(config)
     folder_path = os.path.join(config.output_path, config_hash)
@@ -75,6 +80,8 @@ def main(_):
         adata = adata[
             adata.obs["consolidated_cluster"] == config.processing.consolidated_cluster
         ].copy()
+
+    sc.pp.filter_genes(adata, min_cells=10)
 
     # model fitting
     estimator = ODEstimator(adata, **config.estimator.to_dict())
