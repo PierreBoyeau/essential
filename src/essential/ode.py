@@ -152,6 +152,10 @@ class ODEstimator:
             else:
                 print("NNs found in adata.obsm, using them...")
                 self.nn_index = self.adata.obsm["nns"]
+            nn_index_flat = self.nn_index.flatten()
+            perturbation_of_nns = self.adata.obs[self.pertubation_col].values[nn_index_flat]
+            if not np.all(perturbation_of_nns == self.control_key):
+                raise ValueError("NNs are not all control cells; rerun with recompute_nns=True")
 
         elif self.pairing_strategy == "exact":
             if "x0" not in self.adata.obsm:
@@ -161,6 +165,8 @@ class ODEstimator:
             print("No pairing strategy specified.")
         else:
             raise ValueError(f"Invalid pairing strategy: {self.pairing_strategy}")
+
+        self.x_full_ = jnp.array(self.X)
 
         if self.subset_treated:
             mask_ = (self.adata.obs[self.pertubation_col] != self.control_key).values
@@ -378,11 +384,13 @@ class ODEstimator:
         del self.u_
         if hasattr(self, "nn_index_"):
             del self.nn_index_
+        if hasattr(self, "x_full_"):
+            del self.x_full_
 
     def _get_x0_batch(self, batch_indices, pairing_key):
         if self.pairing_strategy == "nn":
             nn_batch = self.nn_index_[batch_indices]
-            x0_batch = self._sample_from_neighbors(nn_batch, self.x_, pairing_key)
+            x0_batch = self._sample_from_neighbors(nn_batch, self.x_full_, pairing_key)
         elif self.pairing_strategy == "exact":
             x0_batch = self.x0_[batch_indices]
         elif self.pairing_strategy is None:
@@ -520,12 +528,12 @@ class ODEstimator:
         return df
 
     @staticmethod
-    def process_data(adata):
+    def process_data(adata, force_recompute_nns=False):
         adata.X = adata.layers["counts"].copy()
         sc.pp.normalize_total(adata, target_sum=1)
         adata.layers["concentration"] = adata.X.copy()
         adata.X = adata.layers["counts"].copy()
-        if "nns" not in adata.obsm:
+        if ("nns" not in adata.obsm) or force_recompute_nns:
             nns = compute_nns_in_latent(
                 adata,
                 batch_key="rt_bc",
@@ -534,4 +542,5 @@ class ODEstimator:
                 K=5,
             )
             adata.obsm["nns"] = nns
+            adata.uns["n_cells_with_nns"] = nns.shape[0]
         return adata
