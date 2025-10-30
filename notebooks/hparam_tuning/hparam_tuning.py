@@ -7,8 +7,10 @@ import scanpy as sc
 import optuna
 from essential.ode import ODEstimator
 from essential.utils import evaluate_interactions_on_regulondb, load_regulondb_full
-from essential.configs.base import get_config
+from essential.configs.models.dynamic_cellbox import get_config
 
+
+trial_name = "hparam_tuning6"
 
 # Load base configuration
 config = get_config()
@@ -27,6 +29,8 @@ adata.X = adata.layers["counts"].copy()
 
 adata_ = adata
 sc.pp.filter_genes(adata_, min_cells=10)
+ODEstimator.process_data(adata_, force_recompute_nns=True)
+config.estimator.recompute_nns = False
 
 
 def objective(trial):
@@ -43,6 +47,9 @@ def objective(trial):
         "model_class",
         [
             "dynamic_cellbox",
+            "dynamic_hardko",
+            "dynamic_hardkozeroorder",
+            "dynamic_cellboxzeroorder",
             "dynamic_hardmultiplicative",
             "dynamic_multiplicative",
         ],
@@ -88,8 +95,8 @@ def print_callback(study, trial):
 
 study = optuna.create_study(
     direction="maximize",
-    storage="sqlite:///hparam_tuning4.db",
-    study_name="hparam_tuning4",
+    storage=f"sqlite:///{trial_name}.db",
+    study_name=f"{trial_name}",
     load_if_exists=True,
 )
 study.optimize(

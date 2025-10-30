@@ -367,3 +367,16 @@ def evaluate_interactions_on_regulondb(df_ode, ignore_selfregulators=False):
     metrics_res_reversed = {f"reversed_{k}": v for k, v in metrics_res_reversed.items()}
     metrics_res.update(metrics_res_reversed)
     return metrics_res
+
+
+def compute_topk_precision(df, k_top=3000, ignore_selfregulators=False):
+    df_ = df.copy()
+    if ignore_selfregulators:
+        df_ = df.loc[lambda x: x["regulator_gene"] != x["target_gene"]].copy()
+    sorted_df = df_.sort_values(by="score", ascending=False).head(k_top).copy()
+    precision = np.cumsum(sorted_df["is_evidence"]) / np.arange(1, k_top + 1)
+    n_tp = np.cumsum(sorted_df["is_evidence"])
+    sorted_df["precision"] = precision
+    sorted_df["topk"] = np.arange(1, k_top + 1)
+    sorted_df["n_tp"] = n_tp
+    return sorted_df

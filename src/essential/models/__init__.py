@@ -1,14 +1,14 @@
 from .steady_state_forcing import SteadyStateForcingModel
 from .steady_state_decay import SteadyStateDecayModel
-from .multiplicative_knockdown import MultiplicativeKnockdownModel
-from .multiplicative_knockdown_with_basal import MultiplicativeKnockdownWithBasal
 from .dynamic_cellbox import DynamicCellboxModel
 from .dynamic_cellboxlowdim import DynamicCellboxLowDimModel
 from .dynamic_cellboxlowdim2 import DynamicCellboxLowDimModel2
 from .dynamic_hardmultiplicative import DynamicHardMultiplicativeModel
+from .dynamic_hardko import DynamicHardKoModel
+from .dynamic_hardkozeroorder import DynamicHardKoZeroOrderModel
+from .dynamic_cellboxzeroorder import DynamicCellboxZeroOrderModel
+from .dynamic_sigmoidhardkozeroorder import DynamicSigmoidHardKoZeroOrderModel
 from .dynamic_multiplicative import DynamicMultiplicativeModel
-from .dynamic_linear import DynamicLinearModel
-from .dynamic_linear_softplus import DynamicLinearSoftplusModel
 from .dynamic_decay import DynamicDecayModel
 from .static import StaticModel
 
@@ -16,15 +16,15 @@ from .static import StaticModel
 MODEL_REGISTRY = {
     "steady_state_forcing": SteadyStateForcingModel,
     "steady_state_decay": SteadyStateDecayModel,
-    "multiplicative_knockdown": MultiplicativeKnockdownModel,
-    "multiplicative_knockdown_with_basal": MultiplicativeKnockdownWithBasal,
     "dynamic_cellbox": DynamicCellboxModel,
+    "dynamic_hardko": DynamicHardKoModel,
+    "dynamic_hardkozeroorder": DynamicHardKoZeroOrderModel,
+    "dynamic_cellboxzeroorder": DynamicCellboxZeroOrderModel,
+    "dynamic_sigmoidhardkozeroorder": DynamicSigmoidHardKoZeroOrderModel,
     "dynamic_cellboxlowdim": DynamicCellboxLowDimModel,
     "dynamic_cellboxlowdim2": DynamicCellboxLowDimModel2,
     "dynamic_hardmultiplicative": DynamicHardMultiplicativeModel,
     "dynamic_multiplicative": DynamicMultiplicativeModel,
-    "dynamic_linear": DynamicLinearModel,
-    "dynamic_linear_softplus": DynamicLinearSoftplusModel,
     "dynamic_decay": DynamicDecayModel,
     "static": StaticModel,
 }

@@ -7,28 +7,29 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicLinearSoftplusModel(BaseModel):
+class DynamicHardKoModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.decay_ = self.param("decay_", normal(), (self.n_genes))
 
+        # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_ * (1.0 - jnp.eye(self.n_genes))
-
-    def get_decay(self):
-        return nn.softplus(self.decay_)
+        return self.Amat_
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         A_mat = self.get_Amat()
-        decay = self.get_decay()
 
         def solve_single(x_i, u_i, t_i):
+            perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, u_i)
+            # hard setting the KO gene to 0
+            x_i_ = x_i * (1.0 - perturb_i)
+
             def ode_fn(t, y, args):
-                return jnp.einsum("gj,j->g", A_mat, y) - decay * y
+                conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
+                return conc_contribution
 
             ode_term = diffrax.ODETerm(ode_fn)
             sol = diffrax.diffeqsolve(
@@ -37,7 +38,7 @@ class DynamicLinearSoftplusModel(BaseModel):
                 t0=0.0,
                 t1=jnp.squeeze(t_i),
                 dt0=0.1,
-                y0=x_i,
+                y0=x_i_,
                 saveat=self.saveat,
                 adjoint=self.adjoint,
             )

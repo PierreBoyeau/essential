@@ -44,6 +44,39 @@ def test_cellbox_model(synthetic_adata):
     )
 
 
+def test_cellbox_variations(synthetic_adata):
+    adata_ = synthetic_adata
+    sc.pp.filter_genes(adata_, min_cells=10)
+
+    model_kwargs = {
+        "adata": adata_,
+        "pairing_strategy": "nn",
+        "expression_type": "none",
+        "model_kwargs": {
+            "lambda_prior": 1.5e-7,
+        },
+    }
+    fit_kwargs = {
+        "learning_rate": 1e-2,
+        "n_epochs": 1,
+        "log_every_n_steps": 10,
+        "batch_size": 100,
+        "batch_size_eval": 5,
+    }
+
+    # ode_model = ODEstimator(model_class="dynamic_hardko", **model_kwargs)
+    # ode_model.fit(**fit_kwargs)
+
+    # ode_model = ODEstimator(model_class="dynamic_hardkozeroorder", **model_kwargs)
+    # ode_model.fit(**fit_kwargs)
+
+    # ode_model = ODEstimator(model_class="dynamic_cellboxzeroorder", **model_kwargs)
+    # ode_model.fit(**fit_kwargs)
+
+    ode_model = ODEstimator(model_class="dynamic_sigmoidhardkozeroorder", **model_kwargs)
+    ode_model.fit(**fit_kwargs)
+
+
 def test_cellboxlowdim_model(synthetic_adata):
     adata_ = synthetic_adata
     sc.pp.filter_genes(adata_, min_cells=10)

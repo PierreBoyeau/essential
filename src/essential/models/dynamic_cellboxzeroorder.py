@@ -7,24 +7,35 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicLinearModel(BaseModel):
+class DynamicCellboxZeroOrderModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
+        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
+        self.bias_term_ = self.param("bias_term_", normal(), (self.n_genes))
 
+        # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
-        # self.solver = diffrax.Tsit5()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+        return self.Amat_
+
+    def get_bvec(self):
+        return -nn.softplus(self.bvec_)
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         A_mat = self.get_Amat()
+        bvec = self.get_bvec()
 
         def solve_single(x_i, u_i, t_i):
+            indic_times_param_i = u_i * bvec
+            constant_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
+            constant_term = constant_term + self.bias_term_
+
             def ode_fn(t, y, args):
-                return jnp.einsum("gj,j->g", A_mat, y)
+                conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
+                return conc_contribution + constant_term
 
             ode_term = diffrax.ODETerm(ode_fn)
             sol = diffrax.diffeqsolve(

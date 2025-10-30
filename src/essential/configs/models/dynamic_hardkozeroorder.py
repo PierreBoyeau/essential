@@ -6,8 +6,8 @@ from essential.configs.base import get_config as get_base_config
 def get_config():
     """Returns config for dynamic cellbox model."""
     config = get_base_config()
-    config.tag = "cellbox"
-    config.estimator.model_class = "dynamic_cellbox"
+    config.tag = "dynamic_hardkozeroorder"
+    config.estimator.model_class = "dynamic_hardkozeroorder"
     config.estimator.expression_type = "concentration"
     config.estimator.pairing_strategy = "nn"
     config.estimator.recompute_nns = False

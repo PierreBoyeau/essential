@@ -9,11 +9,12 @@ def get_config():
     config.tag = "steady_state_forcing"
     config.estimator.model_class = "steady_state_forcing"
     config.estimator.expression_type = "concentration"
-    config.estimator.pairing_strategy = "none"  # does not use NNs, use this to avoid recomputation
+    config.estimator.pairing_strategy = "nn"  # does not use NNs, use this to avoid recomputation
+    config.estimator.recompute_nns = False
     config.estimator.model_kwargs.lambda_prior = 3.81e-05
 
     config.training.learning_rate = 1e-2
-    config.training.n_epochs = 5000
+    config.training.n_epochs = 1000
     config.training.early_stopping_patience = 100
     config.training.batch_size = 4000
     config.training.batch_size_eval = 128
