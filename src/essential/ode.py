@@ -6,7 +6,6 @@ from tqdm import tqdm
 from flax.training import train_state
 import pandas as pd
 import scanpy as sc
-from scvi.model import SCVI
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import issparse
 import time
@@ -15,11 +14,10 @@ import time
 from .models import MODEL_REGISTRY
 
 
-def compute_nns_in_latent(adata, batch_key, condition_key, condition0, K=5):
-    SCVI.setup_anndata(adata, batch_key=batch_key, layer="counts")
-    model = SCVI(adata)
-    model.train()
-    z = model.get_latent_representation()
+def compute_nns_in_latent(adata, latent_obsm_key, condition_key, condition0, K=5):
+    if latent_obsm_key not in adata.obsm:
+        raise ValueError(f"Latent representation '{latent_obsm_key}' not found in adata.obsm.")
+    z = adata.obsm[latent_obsm_key]
 
     condition_mask = (adata.obs[condition_key] == condition0).values
     z0 = z[condition_mask]
@@ -41,14 +39,12 @@ class ODEstimator:
         pairing_strategy,
         subset_treated=False,
         model_kwargs=None,
-        recompute_nns=False,
     ):
         self.adata = adata.copy()
         self.preprocess_mode = expression_type
         if pairing_strategy not in ["nn", "exact", None]:
             raise ValueError(f"Invalid pairing strategy: {pairing_strategy}")
         self.pairing_strategy = pairing_strategy
-        self.recompute_nns = recompute_nns
         self.subset_treated = subset_treated
 
         self.X = None
@@ -138,24 +134,18 @@ class ODEstimator:
 
         # compute NNs
         if self.pairing_strategy == "nn":
-            if self.recompute_nns or "nns" not in self.adata.obsm:
-                if self.recompute_nns:
-                    print("Forcing recomputation of NNs for pairing...")
-                else:
-                    print("NNs not found in adata.obsm, computing them...")
-                self.nn_index = compute_nns_in_latent(
-                    self.adata,
-                    batch_key=self.batch_key,
-                    condition_key=self.pertubation_col,
-                    condition0=self.control_key,
+            if "nns" not in self.adata.obsm:
+                raise ValueError(
+                    "For 'nn' pairing, pre-computed nearest neighbors must be in adata.obsm['nns']. "
+                    "Make sure `process_data` was called before fitting the model."
                 )
-            else:
-                print("NNs found in adata.obsm, using them...")
-                self.nn_index = self.adata.obsm["nns"]
+            print("NNs found in adata.obsm, using them...")
+            self.nn_index = self.adata.obsm["nns"]
+
             nn_index_flat = self.nn_index.flatten()
             perturbation_of_nns = self.adata.obs[self.pertubation_col].values[nn_index_flat]
             if not np.all(perturbation_of_nns == self.control_key):
-                raise ValueError("NNs are not all control cells; rerun with recompute_nns=True")
+                raise ValueError("NNs are not all control cells. Please recompute them.")
 
         elif self.pairing_strategy == "exact":
             if "x0" not in self.adata.obsm:
@@ -528,19 +518,18 @@ class ODEstimator:
         return df
 
     @staticmethod
-    def process_data(adata, force_recompute_nns=False):
+    def process_data(adata, latent_obsm_key, K=5):
         adata.X = adata.layers["counts"].copy()
         sc.pp.normalize_total(adata, target_sum=1)
         adata.layers["concentration"] = adata.X.copy()
         adata.X = adata.layers["counts"].copy()
-        if ("nns" not in adata.obsm) or force_recompute_nns:
-            nns = compute_nns_in_latent(
-                adata,
-                batch_key="rt_bc",
-                condition_key="consensus_target",
-                condition0="nontargeting",
-                K=5,
-            )
-            adata.obsm["nns"] = nns
-            adata.uns["n_cells_with_nns"] = nns.shape[0]
+        nns = compute_nns_in_latent(
+            adata,
+            latent_obsm_key=latent_obsm_key,
+            condition_key="consensus_target",
+            condition0="nontargeting",
+            K=K,
+        )
+        adata.obsm["nns"] = nns
+        adata.uns["n_cells_with_nns"] = nns.shape[0]
         return adata

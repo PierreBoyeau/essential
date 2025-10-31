@@ -10,8 +10,7 @@ from essential.utils import evaluate_interactions_on_regulondb, load_regulondb_f
 from essential.configs.models.dynamic_cellbox import get_config
 
 
-trial_name = "hparam_tuning6"
-
+trial_name = "hparam_tuning7"
 # Load base configuration
 config = get_config()
 adata = sc.read_h5ad(config.processing.adata_path)
@@ -29,8 +28,7 @@ adata.X = adata.layers["counts"].copy()
 
 adata_ = adata
 sc.pp.filter_genes(adata_, min_cells=10)
-ODEstimator.process_data(adata_, force_recompute_nns=True)
-config.estimator.recompute_nns = False
+ODEstimator.process_data(adata_, latent_obsm_key=config.processing.latent_obsm_key)
 
 
 def objective(trial):

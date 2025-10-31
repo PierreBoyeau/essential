@@ -65,6 +65,8 @@ def get_hash(config):
 
 def compute_topk_precision_metrics(processed_a_mat, model_tag):
     ref_db = load_regulondb_full(drop_duplicates=True)
+    ref_db["regulator_gene"] = ref_db["regulator_gene"].str.lower()
+    ref_db["target_gene"] = ref_db["target_gene"].str.lower()
     df = ODEstimator.get_results_from_interactions(processed_a_mat, ref_db, transpose_amat=False)
     topk_precision = compute_topk_precision(df, k_top=3000).assign(model=model_tag, type="all")
     topk_precision_offdiag = compute_topk_precision(
@@ -82,6 +84,7 @@ def compute_topk_precision_metrics(processed_a_mat, model_tag):
     topk_precision_df = pd.concat(
         [topk_precision, topk_precision_offdiag, topk_precision_t, topk_precision_offdiag_t]
     )
+    # breakpoint()
     return topk_precision_df
 
 
@@ -109,6 +112,7 @@ def main(_):
     sc.pp.filter_genes(adata, min_cells=10)
 
     # model fitting
+    ODEstimator.process_data(adata, latent_obsm_key=config.processing.latent_obsm_key)
     estimator = ODEstimator(adata, **config.estimator.to_dict())
     estimator.fit(**config.training.to_dict())
 

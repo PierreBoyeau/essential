@@ -10,7 +10,6 @@ def get_config():
     config.estimator.model_class = "dynamic_cellboxlowdim2"
     config.estimator.expression_type = "concentration"
     config.estimator.pairing_strategy = "nn"
-    config.estimator.recompute_nns = False
     config.estimator.model_kwargs.lambda_prior = 0.0
     config.estimator.model_kwargs.n_latent = 128
     config.training.log_every_n_steps = 1000

@@ -32,6 +32,9 @@ def test_cellbox_model(synthetic_adata):
     adata_ = synthetic_adata
     sc.pp.filter_genes(adata_, min_cells=10)
 
+    adata_.obsm["latent_rep"] = adata_.X
+    ODEstimator.process_data(adata_, latent_obsm_key="latent_rep", K=5)
+
     ode_model = ODEstimator(
         adata_,
         expression_type="none",
@@ -63,6 +66,8 @@ def test_cellbox_variations(synthetic_adata):
         "batch_size": 100,
         "batch_size_eval": 5,
     }
+    adata_.obsm["latent_rep"] = adata_.X
+    ODEstimator.process_data(adata_, latent_obsm_key="latent_rep", K=5)
 
     # ode_model = ODEstimator(model_class="dynamic_hardko", **model_kwargs)
     # ode_model.fit(**fit_kwargs)
@@ -80,6 +85,9 @@ def test_cellbox_variations(synthetic_adata):
 def test_cellboxlowdim_model(synthetic_adata):
     adata_ = synthetic_adata
     sc.pp.filter_genes(adata_, min_cells=10)
+
+    adata_.obsm["latent_rep"] = adata_.X
+    ODEstimator.process_data(adata_, latent_obsm_key="latent_rep", K=5)
 
     ode_model = ODEstimator(
         adata_,

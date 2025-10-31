@@ -10,7 +10,6 @@ def get_config():
     config.estimator.model_class = "dynamic_cellbox"
     config.estimator.expression_type = "concentration"
     config.estimator.pairing_strategy = "nn"
-    config.estimator.recompute_nns = False
     config.estimator.model_kwargs.lambda_prior = 3.81e-05
     config.training.n_epochs = 100
     return config
