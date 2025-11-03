@@ -14,12 +14,15 @@ class ODESimulator:
         sparsity=0.1,
         model_class="steady_state_forcing",
         random_seed=0,
+        model_kwargs=None,
     ):
         self.n_genes = n_genes
         self.n_perturbed = n_perturbed
         self.sparsity = sparsity
         self.model_class = model_class
-
+        if model_kwargs is None:
+            model_kwargs = {}
+        self.model_kwargs = model_kwargs
         model_class_ = MODEL_REGISTRY[model_class]
         tf2gene_indicators = np.zeros((n_genes, n_perturbed))
         for i in range(n_perturbed):
@@ -36,7 +39,7 @@ class ODESimulator:
             n_genes=n_genes,
             n_tfs=n_perturbed,
             tf2gene_indicators=tf2gene_indicators,
-            lambda_prior=1.0,
+            **self.model_kwargs,
         )
 
         self.params = self.model.init_params(jax.random.PRNGKey(random_seed))

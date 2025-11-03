@@ -7,36 +7,33 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicMultiplicativeModel(BaseModel):
+class LinearZeroOrderModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.decay_ = jnp.ones(self.n_genes)
-        self.perturb_decay_ = self.param("perturb_decay_", normal(), (self.n_tfs))
+        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
+        self.bias_term_ = self.param("bias_term_", normal(), (self.n_genes))
 
+        # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
-        # self.solver = diffrax.Tsit5()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
-        return Amat
+        return self.Amat_
 
-    def get_decay(self):
-        return nn.softplus(self.decay_)
-
-    def get_perturbation_decay(self):
-        return nn.softplus(self.perturb_decay_)
+    def get_bvec(self):
+        return -nn.softplus(self.bvec_)
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()
-        decay = self.get_decay()
-        perturbation_decay = self.get_perturbation_decay()
-        perturb_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, perturbation_decay * u)
-        cross_terms = jnp.einsum("gj,j->g", A_mat, y)
-        product_contribution = (1.0 - perturb_term) * cross_terms
-        decay_contribution = decay * y
-        return product_contribution - decay_contribution
+        bvec = self.get_bvec()
+
+        indic_times_param_i = u * bvec
+        constant_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
+        constant_term = constant_term + self.bias_term_
+
+        conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
+        return conc_contribution + constant_term
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         def solve_single(x_i, u_i, t_i):

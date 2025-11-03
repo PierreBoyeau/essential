@@ -201,8 +201,7 @@ def load_results(filename):
     genes = saved["genes"]
     df = (
         pd.DataFrame(mat, index=genes, columns=genes)
-        .unstack()
-        .to_frame("score")
+        # .to_frame("signed_score")
         .reset_index()
         .rename(
             columns={

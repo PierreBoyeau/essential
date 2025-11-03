@@ -7,32 +7,36 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicCellboxLowDimModel(BaseModel):
-    n_latent: int
-
+class LinearDecayModel(BaseModel):
     def setup(self):
-        self.factors_ = self.param("factors_", normal(), (self.n_genes, self.n_latent))
-        self.loadings_ = self.param("loadings_", normal(), (self.n_latent, self.n_genes))
-        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
+        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
+        self.decay_ = jnp.ones(self.n_genes)
+        self.perturb_decay_ = self.param("perturb_decay_", normal(), (self.n_tfs))
 
-        # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.factors_ @ self.loadings_
+        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+        return Amat
 
-    def get_bvec(self):
-        return -nn.softplus(self.bvec_)
+    def get_decay(self):
+        return nn.softplus(self.decay_)
+
+    def get_perturbation_decay(self):
+        return nn.softplus(self.perturb_decay_)
 
     def ode_fn(self, y, u):
-        bvec = self.get_bvec()
-        indic_times_param_i = u * bvec
-        perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
-        conc_contribution = jnp.einsum("fj,j->f", self.loadings_, y)
-        conc_contribution = jnp.einsum("gf,f->g", self.factors_, conc_contribution)
-        return conc_contribution + perturb_i
+        A_mat = self.get_Amat()
+        decay = self.get_decay()
+        perturbation_decay = self.get_perturbation_decay()
+
+        perturb_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, perturbation_decay * u)
+        cross_terms = jnp.einsum("gj,j->g", A_mat, y)
+        product_contribution = cross_terms
+        decay_contribution = (decay + perturb_term) * y
+        return product_contribution - decay_contribution
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         def solve_single(x_i, u_i, t_i):
@@ -55,6 +59,7 @@ class DynamicCellboxLowDimModel(BaseModel):
         return jax.vmap(solve_single, in_axes=(0, 0, 0))(x0, u, t)
 
     def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
+        A_mat = self.get_Amat()
         if self.mode == "dynamic":
             xpred = self.simulate(x0, u, t)
             reco_loss = jnp.mean((xpred - xt) ** 2)
@@ -62,7 +67,10 @@ class DynamicCellboxLowDimModel(BaseModel):
             dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
             reco_loss = jnp.mean(dxdt**2)
 
-        # l1_prior = jnp.mean(jnp.abs(A_mat))
-        # loss = reco_loss + self.lambda_prior * l1_prior
-        loss = reco_loss
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": 0.0}
+        l1_prior = jnp.mean(jnp.abs(A_mat))
+        loss = reco_loss + self.lambda_prior * l1_prior
+        return {
+            "loss": loss,
+            "reco_loss": reco_loss,
+            "l1_prior": l1_prior,
+        }

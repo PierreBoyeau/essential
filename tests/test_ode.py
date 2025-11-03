@@ -38,8 +38,8 @@ def test_cellbox_model(synthetic_adata):
     ode_model = ODEstimator(
         adata_,
         expression_type="none",
-        model_kwargs={"lambda_prior": 1.5e-7},
-        model_class="dynamic_cellbox",
+        model_kwargs={"lambda_prior": 1.5e-7, "mode": "dynamic"},
+        model_class="linear",
         pairing_strategy="nn",
     )
     ode_model.fit(
@@ -57,6 +57,7 @@ def test_cellbox_variations(synthetic_adata):
         "expression_type": "none",
         "model_kwargs": {
             "lambda_prior": 1.5e-7,
+            "mode": "dynamic",
         },
     }
     fit_kwargs = {
@@ -69,17 +70,18 @@ def test_cellbox_variations(synthetic_adata):
     adata_.obsm["latent_rep"] = adata_.X
     ODEstimator.process_data(adata_, latent_obsm_key="latent_rep", K=5)
 
-    # ode_model = ODEstimator(model_class="dynamic_hardko", **model_kwargs)
-    # ode_model.fit(**fit_kwargs)
-
-    # ode_model = ODEstimator(model_class="dynamic_hardkozeroorder", **model_kwargs)
-    # ode_model.fit(**fit_kwargs)
-
-    # ode_model = ODEstimator(model_class="dynamic_cellboxzeroorder", **model_kwargs)
-    # ode_model.fit(**fit_kwargs)
-
-    ode_model = ODEstimator(model_class="dynamic_sigmoidhardkozeroorder", **model_kwargs)
-    ode_model.fit(**fit_kwargs)
+    for model_class in [
+        "linear",
+        "linearhardko",
+        "linearhardkozeroorder",
+        "linearzeroorder",
+        "sigmoidhardkozeroorder",
+        "linearhardmultiplicative",
+        "linearmultiplicative",
+        "lineardecay",
+    ]:
+        ode_model = ODEstimator(model_class=model_class, **model_kwargs)
+        ode_model.fit(**fit_kwargs)
 
 
 def test_cellboxlowdim_model(synthetic_adata):
@@ -92,8 +94,8 @@ def test_cellboxlowdim_model(synthetic_adata):
     ode_model = ODEstimator(
         adata_,
         expression_type="none",
-        model_kwargs={"lambda_prior": 1.5e-7, "n_latent": 64},
-        model_class="dynamic_cellboxlowdim2",
+        model_kwargs={"lambda_prior": 1.5e-7, "n_latent": 64, "mode": "dynamic"},
+        model_class="linearlowdim2",
         pairing_strategy="nn",
     )
     ode_model.fit(
@@ -109,8 +111,8 @@ def test_steady_state_decay_model(synthetic_adata):
     ode_model = ODEstimator(
         adata_,
         expression_type="none",
-        model_kwargs={"lambda_prior": 1.5e-7},
-        model_class="steady_state_decay",
+        model_kwargs={"lambda_prior": 1.5e-7, "mode": "steady"},
+        model_class="lineardecay",
         pairing_strategy=None,
     )
     ode_model.fit(
@@ -123,7 +125,8 @@ def test_simulator():
         n_genes=100,
         n_perturbed=10,
         sparsity=0.1,
-        model_class="dynamic_cellbox",
+        model_class="linear",
+        model_kwargs={"mode": "dynamic", "lambda_prior": 0.0},
     )
     adata = simulator.simulate(1000, t=1.0, fraction_control=0.1)
     assert adata.shape == (1000, 100)
@@ -141,17 +144,19 @@ def test_estimator_with_simulator_exact_pairing():
         n_genes=100,
         n_perturbed=10,
         sparsity=0.1,
-        model_class="dynamic_cellbox",
+        model_class="linear",
+        model_kwargs={"mode": "dynamic", "lambda_prior": 0.0},
     )
     adata = simulator.simulate(1000, t=1.0, fraction_control=0.1)
     assert "x0" in adata.obsm
     assert adata.obsm["x0"].shape == adata.X.shape
     estimator = ODEstimator(
         adata,
-        model_class="dynamic_cellbox",
+        model_class="linear",
         pairing_strategy="exact",
         subset_treated=True,
         expression_type="none",
+        model_kwargs={"mode": "dynamic", "lambda_prior": 0.0},
     )
     estimator.fit(n_epochs=2, batch_size=100, batch_size_eval=5)
     assert estimator.epoch_history_df is not None

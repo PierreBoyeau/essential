@@ -7,31 +7,34 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicSigmoidHardKoZeroOrderModel(BaseModel):
+class BaseLinearModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.decay_ = self.param("decay_", normal(), (self.n_genes))
-        self.bias_term_sigmoid_ = self.param("bias_term_sigmoid_", normal(), (self.n_genes))
-        self.basal_term_ = self.param("basal_term_", normal(), (self.n_genes))
+        self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
+
+        # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+        return self.Amat_
+
+    def get_bvec(self):
+        return -nn.softplus(self.bvec_)
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()
-        conc_contribution = jnp.einsum("gj,j->g", A_mat, y) + self.bias_term_sigmoid_
-        alpha = nn.sigmoid(conc_contribution) + self.basal_term_
-        beta = self.decay_ * y
-        return alpha - beta
+        bvec = self.get_bvec()
+
+        indic_times_param_i = u * bvec
+        perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, indic_times_param_i)
+
+        conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
+        return conc_contribution + perturb_i
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         def solve_single(x_i, u_i, t_i):
-            perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, u_i)
-            mask_expressed = 1.0 - perturb_i
-            x_i_ = x_i * mask_expressed
 
             def ode_fn_diffrax(t, y, args):
                 return self.ode_fn(y, u_i)
@@ -43,7 +46,7 @@ class DynamicSigmoidHardKoZeroOrderModel(BaseModel):
                 t0=0.0,
                 t1=jnp.squeeze(t_i),
                 dt0=0.1,
-                y0=x_i_,
+                y0=x_i,
                 saveat=self.saveat,
                 adjoint=self.adjoint,
             )
@@ -57,10 +60,8 @@ class DynamicSigmoidHardKoZeroOrderModel(BaseModel):
             xpred = self.simulate(x0, u, t)
             reco_loss = jnp.mean((xpred - xt) ** 2)
         else:
-            perturb_i = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, u)
-            mask_expressed = 1.0 - perturb_i
-            xt_ = xt * mask_expressed
-            dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt_, u)
+            # steady state mode
+            dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
             reco_loss = jnp.mean(dxdt**2)
 
         l1_prior = jnp.mean(jnp.abs(A_mat))

@@ -1,33 +1,57 @@
 import jax
 import jax.numpy as jnp
-from flax.linen.initializers import normal
+from flax.linen.initializers import glorot_normal, normal, zeros, constant
 import flax.linen as nn
 import diffrax
 
 from .base_model import BaseModel
 
 
-class DynamicHardKoZeroOrderModel(BaseModel):
+class SigmoidHardKoZeroOrderModel(BaseModel):
     def setup(self):
-        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
-        self.bias_term_ = self.param("bias_term_", normal(), (self.n_genes))
+        self.Amat_ = self.param("Amat_", glorot_normal(), (self.n_genes, self.n_genes))
+
+        # Initialize decay_ such that softplus(decay_) is centered around 1.0.
+        # The inverse of softplus(x) is log(exp(x) - 1). For x=1, this is ~0.54.
+        # We initialize from a narrow normal distribution around this value.
+        decay_init_mean = jnp.log(jnp.exp(1.0) - 1.0)
+        self.decay_ = self.param(
+            "decay_",
+            lambda key, shape, dtype=jnp.float32: jax.random.normal(key, shape, dtype) * 0.1
+            + decay_init_mean,
+            (self.n_genes),
+        )
+
+        # Initialize sigmoid bias to a negative value to start in an "off" state.
+        self.bias_term_sigmoid_ = self.param("bias_term_sigmoid_", constant(-5.0), (self.n_genes))
+        self.basal_term_ = self.param("basal_term_", zeros, (self.n_genes))
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_
+        return self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+
+    def get_decay(self):
+        return nn.softplus(self.decay_)
+        # return self.decay_
+
+    def get_basal_term(self):
+        return nn.softplus(self.basal_term_)
+        # return self.basal_term_
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()
-        conc_contribution = jnp.einsum("gj,j->g", A_mat, y)
-        return conc_contribution + self.bias_term_
+        conc_contribution = jnp.einsum("gj,j->g", A_mat, y) + self.bias_term_sigmoid_
+        alpha = nn.sigmoid(conc_contribution) + self.get_basal_term()
+        beta = self.get_decay() * y
+        return alpha - beta
 
     def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         def solve_single(x_i, u_i, t_i):
             perturb_i = jnp.einsum("gf,f->g", self.tf2gene_indicators, u_i)
-            # hard setting the KO gene to 0
-            x_i_ = x_i * (1.0 - perturb_i)
+            mask_expressed = 1.0 - perturb_i
+            x_i_ = x_i * mask_expressed
 
             def ode_fn_diffrax(t, y, args):
                 return self.ode_fn(y, u_i)
@@ -54,7 +78,8 @@ class DynamicHardKoZeroOrderModel(BaseModel):
             reco_loss = jnp.mean((xpred - xt) ** 2)
         else:
             perturb_i = jnp.einsum("gf,nf->ng", self.tf2gene_indicators, u)
-            xt_ = xt * (1.0 - perturb_i)
+            mask_expressed = 1.0 - perturb_i
+            xt_ = xt * mask_expressed
             dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt_, u)
             reco_loss = jnp.mean(dxdt**2)
 

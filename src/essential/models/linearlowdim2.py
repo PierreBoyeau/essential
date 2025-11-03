@@ -7,7 +7,7 @@ import diffrax
 from .base_model import BaseModel
 
 
-class DynamicCellboxLowDimModel2(BaseModel):
+class LinearLowDim2Model(BaseModel):
     n_latent: int
 
     def setup(self):

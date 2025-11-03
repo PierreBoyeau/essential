@@ -44,6 +44,7 @@ def get_config():
     config.estimator.subset_treated = True
     config.estimator.model_kwargs = config_dict.ConfigDict()
     config.estimator.model_kwargs.lambda_prior = 1.0
+    config.estimator.model_kwargs.mode = "dynamic"
 
     config.training = config_dict.ConfigDict()
     config.training.learning_rate = 1e-3

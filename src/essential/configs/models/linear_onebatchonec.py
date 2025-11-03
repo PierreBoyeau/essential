@@ -6,9 +6,11 @@ from essential.configs.base import get_config as get_base_config
 def get_config():
     """Returns config for dynamic cellbox model."""
     config = get_base_config()
-    config.tag = "cellbox_onebatch"
+    config.tag = "linear_onebatchonec"
     config.processing.rt_bc = "TACCAG"
-    config.estimator.model_class = "dynamic_cellbox"
+    config.processing.consolidated_cluster = "aerobic"
+    
+    config.estimator.model_class = "linear"
     config.estimator.expression_type = "concentration"
     config.estimator.pairing_strategy = "nn"
     config.estimator.model_kwargs.lambda_prior = 3.81e-05

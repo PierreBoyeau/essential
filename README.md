@@ -35,3 +35,40 @@ Best trial:
 
 - n_obs
 - t
+
+
+[I 2025-10-27 22:20:07,779] Trial 24 finished with value: 0.0051771042552216555 and parameters: {'learning_rate': 0.0002468672465397824, 'n_latent': 79, 'n_epochs': 4464}. Best is trial 8 with value: 0.005234284259723122.
+Current value: 0.0051771042552216555, Current params: {'learning_rate': 0.0002468672465397824, 'n_latent': 79, 'n_epochs': 4464}
+Best value: 0.005234284259723122, Best params: {'learning_rate': 0.00013521379657376357, 'n_latent': 152, 'n_epochs': 1163}
+Best trial:
+  Value (maximal PRAUC): 0.005234284259723122
+  Best hyperparameters: 
+    learning_rate: 0.00013521379657376357
+    n_latent: 152
+    n_epochs: 1163
+
+
+Best alue:v 0.02069661351252447, Best params: {'lambda_prior': 3.8110191959621016e-05, 'learning_rate': 0.009979969893300964, 'model_class': 'dynamic_cellbox'}
+Best trial:
+  Value (maximal PRAUC): 0.02069661351252447
+  Best hyperparameters: 
+    lambda_prior: 3.8110191959621016e-05
+    learning_rate: 0.009979969893300964
+    model_class: dynamic_cellbox
+
+
+1. compare two best models
+- study their correlation, prauc, discoveries, etc.
+
+OUTPUT_PATH="/workspace/results/250516_TF_perturbseq/ode_experiment_10282025"
+python ode_script.py \
+--config=../src/essential/configs/models/dynamic_cellbox.py \
+--output_path $OUTPUT_PATH/
+
+OUTPUT_PATH="/workspace/results/250516_TF_perturbseq/ode_experiment_10282025"
+python ode_script.py \
+--config=../src/essential/configs/models/dynamic_cellboxlowdim2.py \
+--output_path $OUTPUT_PATH
+
+2. find the best model, compare one batch vs all batches
+
