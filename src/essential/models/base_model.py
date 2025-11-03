@@ -9,6 +9,10 @@ class BaseModel(nn.Module):
     n_tfs: int
     tf2gene_indicators: jnp.ndarray
     lambda_prior: float
+    mode: str
+
+    def setup(self):
+        pass
 
     def init_params(self, key):
         """

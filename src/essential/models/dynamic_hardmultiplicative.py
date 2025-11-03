@@ -23,20 +23,22 @@ class DynamicHardMultiplicativeModel(BaseModel):
     def get_decay(self):
         return nn.softplus(self.decay_)
 
-    def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
+    def ode_fn(self, y, u):
         A_mat = self.get_Amat()
         decay = self.get_decay()
+        perturb_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, u)
 
+        cross_terms = jnp.einsum("gj,j->g", A_mat, y)
+        product_contribution = (1.0 - perturb_term) * cross_terms
+        decay_contribution = decay * y
+        return product_contribution - decay_contribution
+
+    def simulate(self, x0: jnp.ndarray, u: jnp.ndarray, t: jnp.ndarray):
         def solve_single(x_i, u_i, t_i):
-            perturb_term = jnp.einsum("gf,f->g", self.tf2gene_indicators, u_i)
+            def ode_fn_diffrax(t, y, args):
+                return self.ode_fn(y, u_i)
 
-            def ode_fn(t, y, args):
-                cross_terms = jnp.einsum("gj,j->g", A_mat, y)
-                product_contribution = (1.0 - perturb_term) * cross_terms
-                decay_contribution = decay * y
-                return product_contribution - decay_contribution
-
-            ode_term = diffrax.ODETerm(ode_fn)
+            ode_term = diffrax.ODETerm(ode_fn_diffrax)
             sol = diffrax.diffeqsolve(
                 ode_term,
                 self.solver,
@@ -53,8 +55,13 @@ class DynamicHardMultiplicativeModel(BaseModel):
 
     def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
         A_mat = self.get_Amat()
-        xpred = self.simulate(x0, u, t)
-        reco_loss = jnp.mean((xpred - xt) ** 2)
+        if self.mode == "dynamic":
+            xpred = self.simulate(x0, u, t)
+            reco_loss = jnp.mean((xpred - xt) ** 2)
+        else:
+            dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
+            reco_loss = jnp.mean(dxdt**2)
+
         l1_prior = jnp.mean(jnp.abs(A_mat))
         loss = reco_loss + self.lambda_prior * l1_prior
         return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}

@@ -1,5 +1,3 @@
-from .steady_state_forcing import SteadyStateForcingModel
-from .steady_state_decay import SteadyStateDecayModel
 from .dynamic_cellbox import DynamicCellboxModel
 from .dynamic_cellboxlowdim import DynamicCellboxLowDimModel
 from .dynamic_cellboxlowdim2 import DynamicCellboxLowDimModel2
@@ -14,8 +12,6 @@ from .static import StaticModel
 
 
 MODEL_REGISTRY = {
-    "steady_state_forcing": SteadyStateForcingModel,
-    "steady_state_decay": SteadyStateDecayModel,
     "dynamic_cellbox": DynamicCellboxModel,
     "dynamic_hardko": DynamicHardKoModel,
     "dynamic_hardkozeroorder": DynamicHardKoZeroOrderModel,
