@@ -5,6 +5,9 @@ import json
 import sklearn.metrics as metrics
 from skimage.filters import threshold_otsu
 
+from essential.ode import ODEstimator
+import hashlib
+
 
 COLUMNS_TO_KEEP = [
     "tf_promoter",
@@ -379,3 +382,54 @@ def compute_topk_precision(df, k_top=3000, ignore_selfregulators=False):
     sorted_df["topk"] = np.arange(1, k_top + 1)
     sorted_df["n_tp"] = n_tp
     return sorted_df
+
+
+def get_hash(config):
+    """Generate hash from config, excluding paths.
+
+    Args:
+        config: ConfigDict containing experiment configuration
+
+    Returns:
+        str: 8-character hash of the configuration
+    """
+    config_dict_copy = config.to_dict()
+    # Exclude paths from hash to ensure reproducibility
+    hash_dict = {
+        k: v
+        for k, v in config_dict_copy.items()
+        if k not in ["output_path"] and not (k == "processing" and "adata_path" in str(v))
+    }
+    # Also exclude adata_path from processing if it exists
+    if "processing" in hash_dict and isinstance(hash_dict["processing"], dict):
+        hash_dict["processing"] = {
+            k: v for k, v in hash_dict["processing"].items() if k != "adata_path"
+        }
+
+    str_config = json.dumps(hash_dict, sort_keys=True)
+    return hashlib.sha256(str_config.encode()).hexdigest()[:8]
+
+
+def compute_topk_precision_metrics(processed_a_mat, model_tag):
+    ref_db = load_regulondb_full(drop_duplicates=True)
+    ref_db["regulator_gene"] = ref_db["regulator_gene"].str.lower()
+    ref_db["target_gene"] = ref_db["target_gene"].str.lower()
+    df = ODEstimator.get_results_from_interactions(processed_a_mat, ref_db, transpose_amat=False)
+    topk_precision = compute_topk_precision(df, k_top=3000).assign(model=model_tag, type="all")
+    topk_precision_offdiag = compute_topk_precision(
+        df, k_top=3000, ignore_selfregulators=True
+    ).assign(model=model_tag, type="offdiag")
+
+    df_t = ODEstimator.get_results_from_interactions(processed_a_mat, ref_db, transpose_amat=True)
+    topk_precision_t = compute_topk_precision(df_t, k_top=3000).assign(
+        model=f"{model_tag}_t", type="all"
+    )
+    topk_precision_offdiag_t = compute_topk_precision(
+        df_t, k_top=3000, ignore_selfregulators=True
+    ).assign(model=f"{model_tag}_t", type="offdiag")
+
+    topk_precision_df = pd.concat(
+        [topk_precision, topk_precision_offdiag, topk_precision_t, topk_precision_offdiag_t]
+    )
+    # breakpoint()
+    return topk_precision_df

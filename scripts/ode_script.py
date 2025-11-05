@@ -19,15 +19,13 @@ from essential.gpu_utils import select_best_gpus
 select_best_gpus(n_gpus=1)
 
 import scanpy as sc
-import pandas as pd
 from essential.ode import ODEstimator
+from essential.utils import get_hash, compute_topk_precision_metrics
 from ml_collections import config_flags
 from absl import app, flags
-import hashlib
 import os
 import json
 import numpy as np
-from essential.utils import compute_topk_precision, load_regulondb_full
 
 
 FLAGS = flags.FLAGS
@@ -35,57 +33,6 @@ config_flags.DEFINE_config_file("config", None, "Path to config file", lock_conf
 flags.DEFINE_string("output_path", None, "Output path for results")
 flags.mark_flag_as_required("config")
 flags.mark_flag_as_required("output_path")
-
-
-def get_hash(config):
-    """Generate hash from config, excluding paths.
-
-    Args:
-        config: ConfigDict containing experiment configuration
-
-    Returns:
-        str: 8-character hash of the configuration
-    """
-    config_dict_copy = config.to_dict()
-    # Exclude paths from hash to ensure reproducibility
-    hash_dict = {
-        k: v
-        for k, v in config_dict_copy.items()
-        if k not in ["output_path"] and not (k == "processing" and "adata_path" in str(v))
-    }
-    # Also exclude adata_path from processing if it exists
-    if "processing" in hash_dict and isinstance(hash_dict["processing"], dict):
-        hash_dict["processing"] = {
-            k: v for k, v in hash_dict["processing"].items() if k != "adata_path"
-        }
-
-    str_config = json.dumps(hash_dict, sort_keys=True)
-    return hashlib.sha256(str_config.encode()).hexdigest()[:8]
-
-
-def compute_topk_precision_metrics(processed_a_mat, model_tag):
-    ref_db = load_regulondb_full(drop_duplicates=True)
-    ref_db["regulator_gene"] = ref_db["regulator_gene"].str.lower()
-    ref_db["target_gene"] = ref_db["target_gene"].str.lower()
-    df = ODEstimator.get_results_from_interactions(processed_a_mat, ref_db, transpose_amat=False)
-    topk_precision = compute_topk_precision(df, k_top=3000).assign(model=model_tag, type="all")
-    topk_precision_offdiag = compute_topk_precision(
-        df, k_top=3000, ignore_selfregulators=True
-    ).assign(model=model_tag, type="offdiag")
-
-    df_t = ODEstimator.get_results_from_interactions(processed_a_mat, ref_db, transpose_amat=True)
-    topk_precision_t = compute_topk_precision(df_t, k_top=3000).assign(
-        model=f"{model_tag}_t", type="all"
-    )
-    topk_precision_offdiag_t = compute_topk_precision(
-        df_t, k_top=3000, ignore_selfregulators=True
-    ).assign(model=f"{model_tag}_t", type="offdiag")
-
-    topk_precision_df = pd.concat(
-        [topk_precision, topk_precision_offdiag, topk_precision_t, topk_precision_offdiag_t]
-    )
-    # breakpoint()
-    return topk_precision_df
 
 
 def main(_):
