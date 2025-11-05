@@ -7,7 +7,7 @@ import scanpy as sc
 import optuna
 from essential.ode import ODEstimator
 from essential.utils import evaluate_interactions_on_regulondb, load_regulondb_full
-from essential.configs.models.dynamic_cellbox import get_config
+from essential.configs.base import get_config
 
 
 trial_name = "hparam_tuning7"
@@ -39,17 +39,18 @@ def objective(trial):
     # Define the hyperparameter search space
     lambda_prior = trial.suggest_float("lambda_prior", 1e-7, 1e0, log=True)
     learning_rate = trial.suggest_float("learning_rate", 1e-3, 1e-2, log=True)
-    n_epochs = trial.suggest_int("n_epochs", 10, 500)
-    # n_epochs = 5
+    mode = trial.suggest_categorical("mode", ["dynamic", "steady"])
+    # n_epochs = trial.suggest_int("n_epochs", 10, 500)
+    n_epochs = 100
     model_class = trial.suggest_categorical(
         "model_class",
         [
-            "dynamic_cellbox",
+            "linear",
             "dynamic_hardko",
-            "dynamic_hardkozeroorder",
-            "dynamic_cellboxzeroorder",
-            "dynamic_hardmultiplicative",
-            "dynamic_multiplicative",
+            "linearhardkozeroorder",
+            "linearzeroorder",
+            "linearhardmultiplicative",
+            "linearmultiplicative",
         ],
     )
 
@@ -57,18 +58,12 @@ def objective(trial):
     trial_config = config.copy_and_resolve_references()
     trial_config.estimator.model_kwargs.lambda_prior = lambda_prior
     trial_config.estimator.model_class = model_class
+    trial_config.estimator.model_kwargs.mode = mode
     trial_config.training.learning_rate = learning_rate
     trial_config.training.n_epochs = n_epochs
 
     ode_model = ODEstimator(adata_, **trial_config.estimator.to_dict())
     ode_model.fit(**trial_config.training.to_dict())
-
-    # df_ode = ode_model.get_interaction_matrix(return_square=False)
-    # df_ode = df_ode
-    # metrics = evaluate_interactions_on_regulondb(df_ode)
-    # prauc = metrics["pr_auc"]
-    # reversed_prauc = metrics["reversed_pr_auc"]
-    # return np.maximum(prauc, reversed_prauc)
 
     ref_db = load_regulondb_full(drop_duplicates=True)
     v1 = (

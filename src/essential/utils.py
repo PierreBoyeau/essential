@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import json
+import os
+import subprocess
 
 import sklearn.metrics as metrics
 from skimage.filters import threshold_otsu
@@ -408,6 +410,19 @@ def get_hash(config):
 
     str_config = json.dumps(hash_dict, sort_keys=True)
     return hashlib.sha256(str_config.encode()).hexdigest()[:8]
+
+
+def get_git_hash():
+    """Get the current git commit hash."""
+    try:
+        file_dir = os.path.dirname(os.path.abspath(__file__))
+        return (
+            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=file_dir)
+            .decode("ascii")
+            .strip()
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "not_a_git_repo"
 
 
 def compute_topk_precision_metrics(processed_a_mat, model_tag):

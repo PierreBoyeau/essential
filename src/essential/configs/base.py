@@ -5,21 +5,8 @@ Use this as a template or import and override specific sections for custom exper
 """
 
 from ml_collections import config_dict
+from essential.utils import get_git_hash
 import subprocess
-import os
-
-
-def get_git_hash():
-    """Get the current git commit hash."""
-    try:
-        file_dir = os.path.dirname(os.path.abspath(__file__))
-        return (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=file_dir)
-            .decode("ascii")
-            .strip()
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "not_a_git_repo"
 
 
 def get_config():
@@ -27,6 +14,16 @@ def get_config():
     config = config_dict.ConfigDict()
     config.tag = None
     config.git_hash = get_git_hash()
+
+    config.do_lr_optimization = False
+    config.lr_optimization_params = config_dict.ConfigDict()
+    config.lr_optimization_params.n_trials = 50
+    config.lr_optimization_params.n_steps_per_trial = 100
+    config.lr_optimization_params.lr_min = 1e-5
+    config.lr_optimization_params.lr_max = 1e2
+    config.lr_optimization_params.batch_size = 100
+    config.lr_optimization_params.dev_size = 0.2
+    config.lr_optimization_params.random_seed = 42
 
     # Data processing configuration
     config.processing = config_dict.ConfigDict()

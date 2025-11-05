@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+import optuna
 from tqdm import tqdm
 from flax.training import train_state
 import pandas as pd
@@ -406,6 +407,198 @@ class ODEstimator:
             del self.nn_index_
         if hasattr(self, "x_full_"):
             del self.x_full_
+
+    def _run_n_steps(self, state, key, train_indices, dev_indices, n_steps, batch_size):
+        """Run training for a fixed number of steps and evaluate on dev set.
+
+        Parameters
+        ----------
+        state : train_state.TrainState
+            The training state with parameters and optimizer.
+        key : jax.random.PRNGKey
+            Random key for shuffling and sampling.
+        train_indices : jnp.ndarray
+            Indices of training samples.
+        dev_indices : jnp.ndarray
+            Indices of development samples for evaluation.
+        n_steps : int
+            Number of training steps to run.
+        batch_size : int
+            Batch size for training and evaluation.
+
+        Returns
+        -------
+        tuple
+            (state, train_loss, dev_loss, key) where train_loss and dev_loss are scalars.
+        """
+        train_losses = []
+
+        for step in range(n_steps):
+            # Sample a batch
+            key, perm_key = jax.random.split(key)
+            batch_indices = jax.random.choice(
+                perm_key, train_indices, shape=(batch_size,), replace=False
+            )
+
+            x_batch = self.x_[batch_indices]
+            u_batch = self.u_[batch_indices]
+
+            key, pairing_key = jax.random.split(key)
+            x0_batch = self._get_x0_batch(batch_indices, pairing_key)
+
+            state, loss_dict, _ = self._train_step(
+                state,
+                x0=x0_batch,
+                xt=x_batch,
+                t=jnp.ones((x_batch.shape[0],)),
+                u=u_batch,
+            )
+            train_losses.append(loss_dict["loss"])
+
+        # Evaluate on dev set
+        dev_losses = []
+        n_dev = len(dev_indices)
+        n_dev_batches = max(1, n_dev // batch_size)
+
+        for j in range(n_dev_batches):
+            start = j * batch_size
+            end = min(start + batch_size, n_dev)
+            batch_indices = dev_indices[start:end]
+
+            x_batch = self.x_[batch_indices]
+            u_batch = self.u_[batch_indices]
+
+            key, pairing_key = jax.random.split(key)
+            x0_batch = self._get_x0_batch(batch_indices, pairing_key)
+
+            loss_dict = self._eval_step(
+                state,
+                x0=x0_batch,
+                xt=x_batch,
+                t=jnp.ones((x_batch.shape[0],)),
+                u=u_batch,
+            )
+            dev_losses.append(loss_dict["loss"])
+
+        avg_train_loss = jnp.mean(jnp.array(train_losses))
+        avg_dev_loss = jnp.mean(jnp.array(dev_losses))
+
+        return state, avg_train_loss, avg_dev_loss, key
+
+    def find_best_lr(
+        self,
+        n_trials=10,
+        n_steps_per_trial=100,
+        lr_min=1e-5,
+        lr_max=1e-1,
+        batch_size=4096,
+        dev_size=0.1,
+        optimizer_fn=None,
+        random_seed=42,
+    ):
+        n_obs = self.x_.shape[0]
+
+        # Split data into train and dev
+        split_key = jax.random.PRNGKey(random_seed)
+        indices = jax.random.permutation(split_key, n_obs)
+        dev_idx_int = int(n_obs * dev_size)
+        dev_indices = indices[:dev_idx_int]
+        train_indices = indices[dev_idx_int:]
+
+        print(f"\nOptuna LR tuning:")
+        print(f"  Train samples: {len(train_indices)}")
+        print(f"  Dev samples: {len(dev_indices)}")
+        print(f"  Steps per trial: {n_steps_per_trial}")
+        print(f"  Number of trials: {n_trials}")
+        print(f"  LR range: [{lr_min:.2e}, {lr_max:.2e}]\n")
+
+        if optimizer_fn is None:
+            optimizer_fn = optax.sgd
+
+        def objective(trial):
+            # Sample learning rate
+            lr = trial.suggest_float("learning_rate", lr_min, lr_max, log=True)
+            momentum = trial.suggest_float("momentum", 0.7, 0.9, step=0.1)
+
+            try:
+                # Initialize fresh parameters
+                params = self.model.init_params(jax.random.PRNGKey(random_seed))
+                optimizer = optimizer_fn(learning_rate=lr, momentum=momentum)
+                state = train_state.TrainState.create(
+                    apply_fn=self.model.apply, params=params, tx=optimizer
+                )
+
+                # Train for n_steps
+                key = jax.random.PRNGKey(random_seed + trial.number)
+                state, train_loss, dev_loss, _ = self._run_n_steps(
+                    state, key, train_indices, dev_indices, n_steps_per_trial, batch_size
+                )
+
+                # Log intermediate values
+                trial.set_user_attr("train_loss", float(train_loss))
+                trial.set_user_attr("dev_loss", float(dev_loss))
+
+                # Check for NaN/Inf in losses
+                if jnp.isnan(dev_loss) or jnp.isinf(dev_loss):
+                    trial.set_user_attr("error", f"Invalid dev_loss: {dev_loss}")
+                    raise optuna.TrialPruned(f"Dev loss is {dev_loss}")
+
+                if jnp.isnan(train_loss) or jnp.isinf(train_loss):
+                    trial.set_user_attr("error", f"Invalid train_loss: {train_loss}")
+                    raise optuna.TrialPruned(f"Train loss is {train_loss}")
+
+                return float(dev_loss)
+
+            except optuna.TrialPruned:
+                # Re-raise pruned trials
+                raise
+            except Exception as e:
+                # Log the error for debugging
+                trial.set_user_attr("error", str(e))
+                trial.set_user_attr("error_type", type(e).__name__)
+                # Re-raise to mark trial as FAILED
+                raise
+
+        # Create and run study
+        study = optuna.create_study(
+            direction="minimize", sampler=optuna.samplers.TPESampler(seed=random_seed)
+        )
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+
+        # Create trials dataframe
+        trials_data = []
+        for trial in study.trials:
+            trials_data.append(
+                {
+                    "trial_number": trial.number,
+                    "params": trial.params,
+                    "dev_loss": trial.value,
+                    "train_loss": trial.user_attrs.get("train_loss", None),
+                    "state": trial.state.name,
+                }
+            )
+        trials_df = pd.DataFrame(trials_data)
+
+        # Count trial states
+        n_complete = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
+        n_pruned = len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED])
+        n_failed = len([t for t in study.trials if t.state == optuna.trial.TrialState.FAIL])
+
+        print(f"\nOptuna results:")
+        print(f"  Best params: {study.best_params}")
+        print(f"  Best dev loss: {study.best_value:.6e}")
+        print(f"  Completed trials: {n_complete}/{n_trials}")
+        if n_pruned > 0:
+            print(f"  Pruned trials (NaN/Inf): {n_pruned}")
+        if n_failed > 0:
+            print(f"  Failed trials (errors): {n_failed}")
+
+        return {
+            "best_params": study.best_params,
+            "best_dev_loss": study.best_value,
+            "study": study,
+            "trials_df": trials_df,
+        }
 
     def _get_x0_batch(self, batch_indices, pairing_key):
         if self.pairing_strategy == "nn":

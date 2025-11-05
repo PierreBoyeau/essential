@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from anndata import AnnData
+import optax
 
 from essential.ode import ODEstimator
 from essential.simulator import ODESimulator
@@ -203,3 +204,45 @@ def test_estimator_with_simulator_exact_pairing():
     estimator.fit(n_epochs=2, batch_size=100, batch_size_eval=5)
     assert estimator.epoch_history_df is not None
     assert len(estimator.epoch_history_df) > 0
+
+
+def test_find_best_lr(synthetic_adata):
+    """Test the Optuna-based learning rate finder."""
+
+    synthetic_adata.obsm["latent_rep"] = synthetic_adata.X
+    ODEstimator.process_data(synthetic_adata, latent_obsm_key="latent_rep", K=5)
+    estimator = ODEstimator(
+        synthetic_adata,
+        model_class="linear",
+        pairing_strategy="nn",
+        subset_treated=True,
+        expression_type="none",
+        model_kwargs={"mode": "dynamic", "lambda_prior": 0.0},
+    )
+
+    result = estimator.find_best_lr(
+        n_trials=3,
+        n_steps_per_trial=10,
+        lr_min=1e-4,
+        lr_max=1e3,
+        batch_size=100,
+        dev_size=0.2,
+        random_seed=42,
+    )
+    result = estimator.find_best_lr(
+        n_trials=3,
+        n_steps_per_trial=10,
+        lr_min=1e-4,
+        lr_max=1e-1,
+        batch_size=100,
+        dev_size=0.2,
+        random_seed=42,
+        optimizer_fn=optax.sgd,
+    )
+    estimator.fit(
+        n_epochs=2,
+        batch_size=100,
+        batch_size_eval=5,
+        optimizer=optax.sgd(**result["best_params"]),
+    )
+    assert estimator.epoch_history_df is not None

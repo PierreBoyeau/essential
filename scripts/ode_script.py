@@ -26,6 +26,7 @@ from absl import app, flags
 import os
 import json
 import numpy as np
+import optax
 
 
 FLAGS = flags.FLAGS
@@ -61,6 +62,10 @@ def main(_):
     # model fitting
     ODEstimator.process_data(adata, latent_obsm_key=config.processing.latent_obsm_key)
     estimator = ODEstimator(adata, **config.estimator.to_dict())
+    if config.do_lr_optimization:
+        best_params = estimator.find_best_lr(**config.lr_optimization_params.to_dict())
+        optimizer = optax.sgd(**best_params["best_params"])
+        config.training.optimizer = optimizer
     estimator.fit(**config.training.to_dict())
 
     a_mat = estimator.get_interaction_matrix()
