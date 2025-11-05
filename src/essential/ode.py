@@ -88,6 +88,36 @@ class ODEstimator:
             counts[counts > 1] = 1
         elif self.preprocess_mode == "concentration":
             counts = counts / counts.sum(axis=0)
+        elif self.preprocess_mode == "concentration_fixed":
+            counts = counts / counts.sum(axis=1, keepdims=True)
+        elif self.preprocess_mode == "zscore":
+            log_geo_means = np.mean(np.log(counts + 1), axis=0)
+            geo_means = np.exp(log_geo_means)
+            ratios = counts / (geo_means + 1e-10)
+            size_factors = np.median(ratios, axis=1)
+            normalized = counts / (size_factors[:, None] + 1e-10)
+            log_normalized = np.log1p(normalized)
+            gene_mean = log_normalized.mean(axis=0, keepdims=True)
+            gene_std = log_normalized.std(axis=0, keepdims=True) + 1e-8
+            counts = (log_normalized - gene_mean) / gene_std
+        elif self.preprocess_mode == "quantile":
+            ranks = np.empty_like(counts)
+            # Rank each gene's expression across cells
+            for i in range(counts.shape[1]):
+                ranks[:, i] = np.argsort(np.argsort(counts[:, i]))
+            # Scale ranks to [0, 1]
+            counts = ranks / (counts.shape[0] - 1)
+        elif self.preprocess_mode == "sigmoid_scale":
+            log_geo_means = np.mean(np.log(counts + 1), axis=0)
+            geo_means = np.exp(log_geo_means)
+            ratios = counts / (geo_means + 1e-10)
+            size_factors = np.median(ratios, axis=1)
+            normalized = counts / size_factors[:, None]
+            log_normalized = np.log1p(normalized)
+            gene_mean = log_normalized.mean(axis=0, keepdims=True)
+            gene_std = log_normalized.std(axis=0, keepdims=True) + 1e-8
+            z_scored = (log_normalized - gene_mean) / gene_std
+            counts = 1 / (1 + np.exp(-z_scored))
         elif self.preprocess_mode == "none":
             pass
         else:

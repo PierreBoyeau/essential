@@ -57,18 +57,3 @@ Best trial:
     model_class: dynamic_cellbox
 
 
-1. compare two best models
-- study their correlation, prauc, discoveries, etc.
-
-OUTPUT_PATH="/workspace/results/250516_TF_perturbseq/ode_experiment_10282025"
-python ode_script.py \
---config=../src/essential/configs/models/dynamic_cellbox.py \
---output_path $OUTPUT_PATH/
-
-OUTPUT_PATH="/workspace/results/250516_TF_perturbseq/ode_experiment_10282025"
-python ode_script.py \
---config=../src/essential/configs/models/dynamic_cellboxlowdim2.py \
---output_path $OUTPUT_PATH
-
-2. find the best model, compare one batch vs all batches
-

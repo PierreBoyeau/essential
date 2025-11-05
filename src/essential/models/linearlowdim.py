@@ -8,9 +8,8 @@ from .base_model import BaseModel
 
 
 class LinearLowDimModel(BaseModel):
-    n_latent: int
-
     def setup(self):
+        assert self.n_latent is not None, "n_latent must be specified for LinearLowDimModel"
         self.factors_ = self.param("factors_", normal(), (self.n_genes, self.n_latent))
         self.loadings_ = self.param("loadings_", normal(), (self.n_latent, self.n_genes))
         self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
@@ -21,7 +20,10 @@ class LinearLowDimModel(BaseModel):
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.factors_ @ self.loadings_
+        Amat = self.factors_ @ self.loadings_
+        if self.Amask is not None:
+            Amat = Amat * self.Amask
+        return Amat
 
     def get_bvec(self):
         return -nn.softplus(self.bvec_)

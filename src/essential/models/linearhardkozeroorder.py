@@ -16,7 +16,10 @@ class LinearHardKoZeroOrderModel(BaseModel):
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_
+        Amat = self.Amat_
+        if self.Amask is not None:
+            Amat = Amat * self.Amask
+        return Amat
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()

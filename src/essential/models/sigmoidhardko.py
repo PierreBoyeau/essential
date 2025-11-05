@@ -24,7 +24,10 @@ class SigmoidHardKoModel(BaseModel):
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+        if self.Amask is not None:
+            Amat = Amat * self.Amask
+        return Amat
 
     def get_decay(self):
         return nn.softplus(self.decay_)

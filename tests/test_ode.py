@@ -1,5 +1,6 @@
 import scanpy as sc
 import jax
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pytest
@@ -38,7 +39,7 @@ def test_cellbox_model(synthetic_adata):
     ode_model = ODEstimator(
         adata_,
         expression_type="none",
-        model_kwargs={"lambda_prior": 1.5e-7, "mode": "dynamic"},
+        model_kwargs={"lambda_prior": 1.5e-7, "mode": "dynamic", "Amask": None},
         model_class="linear",
         pairing_strategy="nn",
     )
@@ -69,6 +70,47 @@ def test_cellbox_variations(synthetic_adata):
     }
     adata_.obsm["latent_rep"] = adata_.X
     ODEstimator.process_data(adata_, latent_obsm_key="latent_rep", K=5)
+
+    for model_class in [
+        "linear",
+        "linearhardko",
+        "linearhardkozeroorder",
+        "linearzeroorder",
+        "sigmoidhardkozeroorder",
+        "linearhardmultiplicative",
+        "linearmultiplicative",
+        "lineardecay",
+    ]:
+        ode_model = ODEstimator(model_class=model_class, **model_kwargs)
+        ode_model.fit(**fit_kwargs)
+
+
+def test_cellbox_masked(synthetic_adata):
+    adata_ = synthetic_adata
+    sc.pp.filter_genes(adata_, min_cells=10)
+
+    fit_kwargs = {
+        "learning_rate": 1e-2,
+        "n_epochs": 1,
+        "log_every_n_steps": 10,
+        "batch_size": 100,
+        "batch_size_eval": 5,
+    }
+    adata_.obsm["latent_rep"] = adata_.X
+    ODEstimator.process_data(adata_, latent_obsm_key="latent_rep", K=5)
+    Amask = np.random.rand(adata_.n_vars, adata_.n_vars) >= 0.5
+    Amask = jnp.array(Amask.astype(np.float32))
+
+    model_kwargs = {
+        "adata": adata_,
+        "pairing_strategy": "nn",
+        "expression_type": "none",
+        "model_kwargs": {
+            "lambda_prior": 1.5e-7,
+            "mode": "dynamic",
+            "Amask": Amask,
+        },
+    }
 
     for model_class in [
         "linear",

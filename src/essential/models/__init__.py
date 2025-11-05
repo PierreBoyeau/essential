@@ -8,6 +8,7 @@ from .linearhardmultiplicative import LinearHardMultiplicativeModel
 from .linearzeroorder import LinearZeroOrderModel
 from .sigmoidhardkozeroorder import SigmoidHardKoZeroOrderModel
 from .sigmoidhardko import SigmoidHardKoModel
+from .sigmoid2 import Sigmoid2Model
 from .linearmultiplicative import LinearMultiplicativeModel
 from .lineardecay import LinearDecayModel
 from .static import StaticModel
@@ -20,6 +21,7 @@ MODEL_REGISTRY = {
     "linearzeroorder": LinearZeroOrderModel,
     "sigmoidhardkozeroorder": SigmoidHardKoZeroOrderModel,
     "sigmoidhardko": SigmoidHardKoModel,
+    "sigmoid2": Sigmoid2Model,
     "linearhardmultiplicative": LinearHardMultiplicativeModel,
     "linearmultiplicative": LinearMultiplicativeModel,
     "lineardecay": LinearDecayModel,

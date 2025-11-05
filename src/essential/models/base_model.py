@@ -8,8 +8,10 @@ class BaseModel(nn.Module):
     n_genes: int
     n_tfs: int
     tf2gene_indicators: jnp.ndarray
-    lambda_prior: float
-    mode: str
+    lambda_prior: float = 1.0
+    mode: str = "dynamic"
+    Amask: jnp.ndarray | None = None
+    n_latent: int | None = None
 
     def setup(self):
         pass

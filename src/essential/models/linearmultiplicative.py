@@ -20,6 +20,8 @@ class LinearMultiplicativeModel(BaseModel):
 
     def get_Amat(self):
         Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
+        if self.Amask is not None:
+            Amat = Amat * self.Amask
         return Amat
 
     def get_decay(self):

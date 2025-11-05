@@ -19,7 +19,10 @@ class LinearZeroOrderModel(BaseModel):
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        return self.Amat_
+        Amat = self.Amat_
+        if self.Amask is not None:
+            Amat = Amat * self.Amask
+        return Amat
 
     def get_bvec(self):
         return -nn.softplus(self.bvec_)
