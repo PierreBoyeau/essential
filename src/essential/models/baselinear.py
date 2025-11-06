@@ -61,12 +61,12 @@ class BaseLinearModel(BaseModel):
         A_mat = self.get_Amat()
         if self.mode == "dynamic":
             xpred = self.simulate(x0, u, t)
-            reco_loss = jnp.mean((xpred - xt) ** 2)
+            deltas = xpred - xt
         else:
             # steady state mode
             dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
-            reco_loss = jnp.mean(dxdt**2)
-
-        l1_prior = jnp.mean(jnp.abs(A_mat))
-        loss = reco_loss + self.lambda_prior * l1_prior
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}
+            deltas = dxdt
+        reco_loss = self.get_reconstruction_loss(deltas)
+        scaled_prior = self.get_laplace_prior(A_mat, self.lambda_prior) / self.n_obs
+        loss = reco_loss + scaled_prior
+        return {"loss": loss, "reco_loss": reco_loss, "prior": scaled_prior}

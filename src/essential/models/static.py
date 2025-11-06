@@ -15,7 +15,7 @@ class StaticModel(BaseModel):
         return self.means_
 
     def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
-
         means = self.get_means()
-        reco_loss = jnp.mean((x0 - means) ** 2)
-        return {"loss": reco_loss, "reco_loss": reco_loss}
+        deltas = x0 - means
+        reco_loss = self.get_reconstruction_loss(deltas)
+        return {"loss": reco_loss, "reco_loss": reco_loss, "l1_prior": 0.0}

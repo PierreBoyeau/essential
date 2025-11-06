@@ -36,6 +36,7 @@ class ODESimulator:
         Amat = Amat.astype(np.float32)
 
         self.model = model_class_(
+            n_obs=1000,  # since n_obs is only used for model fitting, this is just a placeholder
             n_genes=n_genes,
             n_tfs=n_perturbed,
             tf2gene_indicators=tf2gene_indicators,

@@ -76,11 +76,9 @@ def main(_):
         a_mat, return_square=False, delta=delta
     )
 
-    config_to_save = config.to_dict()
-    config_to_save["config_hash"] = config_hash
     config_path = os.path.join(folder_path, "config.json")
     with open(config_path, "w") as f:
-        json.dump(config_to_save, f, indent=4)
+        f.write(config.to_json_best_effort(indent=4))
 
     # Save interaction matrix
     output_file = os.path.join(folder_path, "Amat.npz")

@@ -68,7 +68,10 @@ class ODEstimator:
         model_kwargs["lambda_prior"] = model_kwargs.get("lambda_prior", 1e0)
         if isinstance(model_class, str):
             model_class = MODEL_REGISTRY[model_class]
+
+        n_obs = self.X.shape[0]
         self.model = model_class(
+            n_obs=n_obs,
             n_genes=self.n_genes,
             n_tfs=self.n_perturbations,
             tf2gene_indicators=self.perturbation2geneidx,
