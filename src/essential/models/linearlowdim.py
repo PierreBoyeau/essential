@@ -8,8 +8,9 @@ from .base_model import BaseModel
 
 
 class LinearLowDimModel(BaseModel):
+    n_latent: int
+
     def setup(self):
-        assert self.n_latent is not None, "n_latent must be specified for LinearLowDimModel"
         self.factors_ = self.param("factors_", normal(), (self.n_genes, self.n_latent))
         self.loadings_ = self.param("loadings_", normal(), (self.n_latent, self.n_genes))
         self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
@@ -59,12 +60,12 @@ class LinearLowDimModel(BaseModel):
     def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
         if self.mode == "dynamic":
             xpred = self.simulate(x0, u, t)
-            reco_loss = jnp.mean((xpred - xt) ** 2)
+            deltas = xpred - xt
         else:
             dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
-            reco_loss = jnp.mean(dxdt**2)
+            deltas = dxdt
 
-        # l1_prior = jnp.mean(jnp.abs(A_mat))
-        # loss = reco_loss + self.lambda_prior * l1_prior
-        loss = reco_loss
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": 0.0}
+        reco_loss = self.get_reconstruction_loss(deltas)
+        l1_prior_factors = self.get_laplace_prior(self.factors_, self.lambda_prior) / self.n_obs
+        loss = reco_loss + l1_prior_factors
+        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior_factors}

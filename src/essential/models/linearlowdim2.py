@@ -71,12 +71,14 @@ class LinearLowDim2Model(BaseModel):
     def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
         if self.mode == "dynamic":
             xpred = self.simulate(x0, u, t)
-            reco_loss = jnp.mean((xpred - xt) ** 2)
+            deltas = xpred - xt
         else:
             dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
-            reco_loss = jnp.mean(dxdt**2)
+            deltas = dxdt
 
-        # l1_prior = jnp.mean(jnp.abs(A_mat))
-        # loss = reco_loss + self.lambda_prior * l1_prior
-        loss = reco_loss
-        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": 0.0}
+        reco_loss = self.get_reconstruction_loss(deltas)
+        l1_prior_factors = self.get_laplace_prior(self.factors_, self.lambda_prior) / self.n_obs
+        l1_prior_loadings = self.get_laplace_prior(self.loadings_, self.lambda_prior) / self.n_obs
+        l1_prior = l1_prior_factors + l1_prior_loadings
+        loss = reco_loss + l1_prior
+        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}

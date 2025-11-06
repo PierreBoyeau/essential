@@ -56,7 +56,6 @@ def main(_):
         adata = adata[
             adata.obs["consolidated_cluster"] == config.processing.consolidated_cluster
         ].copy()
-
     sc.pp.filter_genes(adata, min_cells=10)
 
     # model fitting
@@ -84,8 +83,23 @@ def main(_):
     output_file = os.path.join(folder_path, "Amat.npz")
     np.savez_compressed(output_file, matrix=a_mat.values, genes=a_mat.columns.to_numpy())
 
+    # processed_a_mat_ = processed_a_mat.loc[lambda x: x["regulator_gene"].isin(targetted_tfs)]
     topk_precision_df = compute_topk_precision_metrics(processed_a_mat, experiment_tag)
     topk_precision_df.to_csv(os.path.join(folder_path, "topk_precision.csv"), index=False)
+
+    summary_df = (
+        topk_precision_df.groupby(["model", "type"])
+        .apply(lambda x: x.query("is_evidence == True").shape[0])
+        .sort_values(ascending=False)
+    )
+    print("--------------------------------")
+    print("Experiment completed successfully")
+    print("Summary of results:")
+    print(summary_df)
+    print("Config:")
+    print(config)
+    print("Results saved to: ", folder_path)
+    print("--------------------------------")
 
 
 if __name__ == "__main__":

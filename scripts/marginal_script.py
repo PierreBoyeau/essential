@@ -69,7 +69,11 @@ def main():
         tfs=scores.columns.to_numpy(),
     )
 
-    topk_precision_df = compute_topk_precision_metrics(scores, experiment_tag)
+    targetted_tfs = adata.obs["consensus_target"].unique()
+    targetted_tfs = [t.lower() for t in targetted_tfs if t in adata.var_names]
+    processed_a_mat_ = scores.loc[lambda x: x["regulator_gene"].isin(targetted_tfs)]
+
+    topk_precision_df = compute_topk_precision_metrics(processed_a_mat_, experiment_tag)
     topk_precision_df.to_csv(os.path.join(folder_path, "topk_precision.csv"), index=False)
 
 

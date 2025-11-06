@@ -1,6 +1,6 @@
 import jax
 import jax.numpy as jnp
-from flax.linen.initializers import normal
+from flax.linen.initializers import normal, ones
 import flax.linen as nn
 import diffrax
 
@@ -11,6 +11,7 @@ class BaseLinearModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
         self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
+        # self.bvec_ = self.param("bvec_", ones, (self.n_tfs))
 
         # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
@@ -25,6 +26,9 @@ class BaseLinearModel(BaseModel):
 
     def get_bvec(self):
         return -nn.softplus(self.bvec_)
+
+    # def get_bvec(self):
+    #     return -self.bvec_
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()
@@ -67,6 +71,9 @@ class BaseLinearModel(BaseModel):
             dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
             deltas = dxdt
         reco_loss = self.get_reconstruction_loss(deltas)
-        scaled_prior = self.get_laplace_prior(A_mat, self.lambda_prior) / self.n_obs
-        loss = reco_loss + scaled_prior
-        return {"loss": loss, "reco_loss": reco_loss, "prior": scaled_prior}
+        l1_prior = self.get_laplace_prior(A_mat, self.lambda_prior) / self.n_obs
+        loss = reco_loss + l1_prior
+        # reco_loss = jnp.mean(deltas**2)
+        # l1_prior = jnp.mean(jnp.abs(A_mat))
+        # loss = reco_loss + self.lambda_prior * l1_prior
+        return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}
