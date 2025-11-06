@@ -15,7 +15,7 @@ def get_config():
     config.estimator.model_kwargs.mode = "steady"
     config.estimator.subset_treated = False
 
-    config.training.n_epochs = 1000
+    config.training.n_epochs = 100
     config.training.batch_size = 256
     config.training.learning_rate = 1e-3
     return config

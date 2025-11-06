@@ -8,9 +8,9 @@ import optuna
 from essential.ode import ODEstimator
 from essential.utils import evaluate_interactions_on_regulondb, load_regulondb_full
 from essential.configs.base import get_config
+import optax
 
-
-trial_name = "hparam_tuning7"
+# trial_name = "hparam_tuning7"
 # Load base configuration
 config = get_config()
 adata = sc.read_h5ad(config.processing.adata_path)
@@ -46,11 +46,13 @@ def objective(trial):
         "model_class",
         [
             "linear",
-            "dynamic_hardko",
+            "linearhardko",
             "linearhardkozeroorder",
             "linearzeroorder",
             "linearhardmultiplicative",
             "linearmultiplicative",
+            "sigmoidhardko",
+            "sigmoid2",
         ],
     )
 
@@ -63,6 +65,10 @@ def objective(trial):
     trial_config.training.n_epochs = n_epochs
 
     ode_model = ODEstimator(adata_, **trial_config.estimator.to_dict())
+    if trial_config.do_lr_optimization:
+        best_params = ode_model.find_best_lr(**trial_config.lr_optimization_params.to_dict())
+        optimizer = optax.sgd(**best_params["best_params"])
+        trial_config.training.optimizer = optimizer
     ode_model.fit(**trial_config.training.to_dict())
 
     ref_db = load_regulondb_full(drop_duplicates=True)

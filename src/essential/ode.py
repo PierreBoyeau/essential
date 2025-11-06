@@ -87,6 +87,11 @@ class ODEstimator:
             xmax[xmax == 0] = 1
             counts = counts / xmax
             counts[counts > 1] = 1
+        elif self.preprocess_mode == "logmedian":
+            self.adata.X = self.adata.layers["counts"].copy()
+            sc.pp.normalize_total(self.adata, target_sum=1)
+            sc.pp.log1p(self.adata)
+            counts = self.adata.X.toarray()
         elif self.preprocess_mode == "concentration":
             counts = counts / counts.sum(axis=0)
         elif self.preprocess_mode == "concentration_fixed":
