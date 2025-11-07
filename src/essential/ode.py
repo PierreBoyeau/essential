@@ -92,7 +92,7 @@ class ODEstimator:
             counts[counts > 1] = 1
         elif self.preprocess_mode == "logmedian":
             self.adata.X = self.adata.layers["counts"].copy()
-            sc.pp.normalize_total(self.adata, target_sum=1)
+            sc.pp.normalize_total(self.adata)
             sc.pp.log1p(self.adata)
             counts = self.adata.X.toarray()
         elif self.preprocess_mode == "concentration":
@@ -333,6 +333,7 @@ class ODEstimator:
         log_every_n_steps=100,
         optimizer=None,
         batch_size_eval=128,
+        gradient_clip_norm=None,
     ):
         n_obs = self.x_.shape[0]
         key = self.random_key
@@ -347,7 +348,13 @@ class ODEstimator:
         params = self.model.init_params(jax.random.PRNGKey(0))
 
         if optimizer is None:
-            optimizer = optax.adam(learning_rate=learning_rate)
+            if gradient_clip_norm is not None:
+                optimizer = optax.chain(
+                    optax.clip_by_global_norm(gradient_clip_norm),
+                    optax.adam(learning_rate=learning_rate),
+                )
+            else:
+                optimizer = optax.adam(learning_rate=learning_rate)
         self.state = train_state.TrainState.create(
             apply_fn=self.model.apply, params=params, tx=optimizer
         )
@@ -647,7 +654,7 @@ class ODEstimator:
         x0_batch = x_neighbors[rdm_neighbor]
         return x0_batch
 
-    def get_interaction_matrix(self, return_square=True, delta=None, zero_diag=False):
+    def get_interaction_matrix(self, return_square=True, delta=None):
         """Extract the learned gene-gene interaction matrix from the trained model.
 
         This method retrieves the interaction matrix (Amat) that represents regulatory
@@ -695,18 +702,23 @@ class ODEstimator:
             raise RuntimeError("Model has not been trained yet. Please call .fit() first.")
 
         processed_Amat = self.model.apply({"params": self.state.params}, method=self.model.get_Amat)
-        Amat_ = pd.DataFrame(
-            processed_Amat, index=self.adata.var_names, columns=self.adata.var_names
-        )
+        if processed_Amat.shape == (self.n_genes, self.n_genes):
+            Amat_ = pd.DataFrame(
+                processed_Amat, index=self.adata.var_names, columns=self.adata.var_names
+            )
+        elif processed_Amat.shape == (self.n_genes, self.n_perturbations):
+            Amat_ = pd.DataFrame(
+                processed_Amat, index=self.adata.var_names, columns=self.gene_perturbations
+            )
+        else:
+            raise ValueError(f"Invalid Amat shape: {processed_Amat.shape}")
         return ODEstimator.process_interaction_matrix(
-            Amat_, return_square=return_square, delta=delta, zero_diag=zero_diag
+            Amat_, return_square=return_square, delta=delta
         )
 
     @staticmethod
-    def process_interaction_matrix(amat_df, return_square=True, delta=None, zero_diag=False):
+    def process_interaction_matrix(amat_df, return_square=True, delta=None):
         amat_df = amat_df.copy()
-        if zero_diag:
-            np.fill_diagonal(amat_df.values, 0.0)
         if return_square:
             return amat_df
 

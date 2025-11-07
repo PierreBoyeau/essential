@@ -92,6 +92,10 @@ def main(_):
         .apply(lambda x: x.query("is_evidence == True").shape[0])
         .sort_values(ascending=False)
     )
+    history_df = estimator.epoch_history_df
+    history_df.to_csv(os.path.join(folder_path, "history.csv"), index=False)
+    step_history_df = estimator.step_history_df
+    step_history_df.to_csv(os.path.join(folder_path, "step_history.csv"), index=False)
     print("--------------------------------")
     print("Experiment completed successfully")
     print("Summary of results:")

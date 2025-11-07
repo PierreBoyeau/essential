@@ -12,6 +12,7 @@ class BaseModel(nn.Module):
     lambda_prior: float = 1.0
     mode: str = "dynamic"
     Amask: jnp.ndarray | None = None
+    Aweight: jnp.ndarray | None = None
     n_latent: int | None = None
 
     def setup(self):
@@ -28,9 +29,11 @@ class BaseModel(nn.Module):
         params = self.init(key, dummy_x0, dummy_x, dummy_t, dummy_u)["params"]
         return params
 
-    @staticmethod
-    def get_laplace_prior(mat, lambda_prior):
-        return lambda_prior * jnp.sum(jnp.abs(mat))
+    def get_laplace_prior(self, mat, lambda_prior):
+        if self.Aweight is None:
+            return lambda_prior * jnp.sum(jnp.abs(mat))
+        else:
+            return lambda_prior * jnp.sum(self.Aweight * jnp.abs(mat))
 
     @staticmethod
     def get_reconstruction_loss(deltas):

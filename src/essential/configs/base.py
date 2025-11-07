@@ -54,6 +54,7 @@ def get_config():
     config.training.log_every_n_steps = 1
     config.training.batch_size_eval = 128
     config.training.optimizer = None
+    config.training.gradient_clip_norm = 1e5  # no gradient clipping
 
     config.output_path = None
     return config

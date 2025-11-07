@@ -1,6 +1,6 @@
 import jax
 import jax.numpy as jnp
-from flax.linen.initializers import normal, ones
+from flax.linen.initializers import normal, glorot_normal
 import flax.linen as nn
 import diffrax
 
@@ -9,9 +9,8 @@ from .base_model import BaseModel
 
 class BaseLinearModel(BaseModel):
     def setup(self):
-        self.Amat_ = self.param("Amat_", normal(), (self.n_genes, self.n_genes))
+        self.Amat_ = self.param("Amat_", glorot_normal(), (self.n_genes, self.n_genes))
         self.bvec_ = self.param("bvec_", normal(), (self.n_tfs))
-        # self.bvec_ = self.param("bvec_", ones, (self.n_tfs))
 
         # Heun solver - empirically fastest for this problem
         self.solver = diffrax.Heun()
@@ -26,9 +25,6 @@ class BaseLinearModel(BaseModel):
 
     def get_bvec(self):
         return -nn.softplus(self.bvec_)
-
-    # def get_bvec(self):
-    #     return -self.bvec_
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()
@@ -77,3 +73,17 @@ class BaseLinearModel(BaseModel):
         # l1_prior = jnp.mean(jnp.abs(A_mat))
         # loss = reco_loss + self.lambda_prior * l1_prior
         return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}
+
+    # def __call__(self, x0: jnp.ndarray, xt: jnp.ndarray, t: jnp.ndarray, u: jnp.ndarray) -> dict:
+    #     A_mat = self.get_Amat()
+    #     if self.mode == "dynamic":
+    #         xpred = self.simulate(x0, u, t)
+    #         reco_loss = jnp.mean((xpred - xt) ** 2)
+    #     else:
+    #         # steady state mode
+    #         dxdt = jax.vmap(self.ode_fn, in_axes=(0, 0))(xt, u)
+    #         reco_loss = jnp.mean(dxdt**2)
+
+    #     l1_prior = jnp.mean(jnp.abs(A_mat))
+    #     loss = reco_loss + self.lambda_prior * l1_prior
+    #     return {"loss": loss, "reco_loss": reco_loss, "l1_prior": l1_prior}
