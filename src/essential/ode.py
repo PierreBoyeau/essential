@@ -9,10 +9,11 @@ import pandas as pd
 import scanpy as sc
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import issparse
-import time
 
 
 from .models import MODEL_REGISTRY
+
+# from .utils import compute_topk_precision_metrics
 
 
 def compute_nns_in_latent(adata, latent_obsm_key, condition_key, condition0, K=5):
@@ -81,6 +82,7 @@ class ODEstimator:
         self.state = None
         self.epoch_history_df = None
         self.step_history_df = None
+        self.topk_history_df = None
 
     def _preprocess_expression(self, counts):
         # counts = counts.toarray()
@@ -91,10 +93,11 @@ class ODEstimator:
             counts = counts / xmax
             counts[counts > 1] = 1
         elif self.preprocess_mode == "logmedian":
-            self.adata.X = self.adata.layers["counts"].copy()
-            sc.pp.normalize_total(self.adata)
-            sc.pp.log1p(self.adata)
-            counts = self.adata.X.toarray()
+            library_sizes = counts.sum(axis=1, keepdims=True)
+            median_library_size = np.median(library_sizes)
+            library_sizes[library_sizes == 0] = 1
+            normalized_counts = counts / library_sizes * median_library_size
+            counts = np.log1p(normalized_counts)
         elif self.preprocess_mode == "concentration":
             counts = counts / counts.sum(axis=0)
         elif self.preprocess_mode == "concentration_fixed":
@@ -311,16 +314,13 @@ class ODEstimator:
         for param_name, norm in grad_norms.items():
             print(f"  {param_name}: {norm:.6e}")
 
-    def _log_model_diagnostics(self, name, loss_dict):
-        if "cross_terms_mean" in loss_dict:
-            print(f"\n{name} Model diagnostics:")
-            print(f"  cross_terms_mean: {float(loss_dict['cross_terms_mean']):.6e}")
-            print(f"  perturb_term_mean: {float(loss_dict['perturb_term_mean']):.6e}")
-            print(f"  u_active_fraction: {float(loss_dict['u_active_fraction']):.4f}")
-            if "perturbation_decay_mean" in loss_dict:
-                print(
-                    f"  perturbation_decay_mean: {float(loss_dict['perturbation_decay_mean']):.6e}"
-                )
+    def _log_parameter_values(self, name):
+        params = self.state.params
+        print(f"\n{name} Parameter ranges:")
+        for param_name, param_value in params.items():
+            min_val = float(jnp.min(param_value))
+            max_val = float(jnp.max(param_value))
+            print(f"  {param_name}: min={min_val:.6e}, max={max_val:.6e}")
 
     def fit(
         self,
@@ -328,13 +328,16 @@ class ODEstimator:
         n_epochs=5000,
         batch_size=4096,
         train_size=0.9,
-        early_stopping_patience=20,
+        early_stopping_patience=500,
         early_stopping_metric="loss",
         log_every_n_steps=100,
         optimizer=None,
-        batch_size_eval=128,
+        batch_size_eval=10000,
         gradient_clip_norm=None,
+        log_topk_every_n_epochs=None,
     ):
+        from .utils import compute_topk_precision_metrics
+
         n_obs = self.x_.shape[0]
         key = self.random_key
 
@@ -344,6 +347,9 @@ class ODEstimator:
         train_idx_int = int(n_obs * train_size)
         train_indices = indices[:train_idx_int]
         val_indices = indices[train_idx_int:]
+
+        if batch_size_eval is None or batch_size_eval > len(val_indices):
+            batch_size_eval = len(val_indices)
 
         params = self.model.init_params(jax.random.PRNGKey(0))
 
@@ -363,8 +369,13 @@ class ODEstimator:
         train_step_history = []
         val_epoch_history = []
         pbar = tqdm(range(n_epochs))
-        hasnt_improved_counter = 0
+
+        # Step-based early stopping
+        total_steps = 0
+        best_step = 0
         best_loss = 1e10
+
+        topk_history = []
 
         for i in pbar:
             # Training
@@ -374,24 +385,61 @@ class ODEstimator:
             train_step_history.extend(train_steps)
             train_epoch_history.append(avg_train_loss_dict)
 
+            # Update step counter
+            steps_this_epoch = len(train_indices) // batch_size
+            total_steps += steps_this_epoch
+
             # Log gradients intermittently
             if log_every_n_steps > 0 and i % log_every_n_steps == 0 and grads is not None:
-                step_name = f"Epoch {i}"
+                step_name = f"Epoch {i} (step {total_steps})"
                 self._log_gradient_norms(step_name, grads)
-                self._log_model_diagnostics(step_name, avg_train_loss_dict)
+                print("--------------------------------")
+                self._log_parameter_values(step_name)
+                print("--------------------------------")
+
+            # Log top-k metrics
+            if (log_topk_every_n_epochs is not None) and (
+                (i > 0) and (i % log_topk_every_n_epochs)
+            ) == 0:
+                a_mat = self.get_interaction_matrix()
+                processed_a_mat = self.process_interaction_matrix(
+                    a_mat, return_square=False, delta=0.1
+                )
+                topk_precision_df = compute_topk_precision_metrics(processed_a_mat, f"epoch_{i}")
+
+                summary_t = topk_precision_df.query(
+                    "type == 'offdiag' and direction == 't'"
+                ).is_evidence.sum()
+                summary_f = topk_precision_df.query(
+                    "type == 'offdiag' and direction == 'f'"
+                ).is_evidence.sum()
+
+                print(f"Top-k metrics at epoch {i}:")
+                print(f"  offdiag_t_hits: {summary_t}")
+                print(f"  offdiag_f_hits: {summary_f}")
+
+                topk_history.append(
+                    {
+                        "epoch": i,
+                        "step": total_steps,
+                        "offdiag_t_hits": summary_t,
+                        "offdiag_f_hits": summary_f,
+                    }
+                )
 
             # Validation
             _, avg_val_loss_dict, _, _, key = self._run_epoch(
                 self.state, key, val_indices, batch_size=batch_size_eval, is_training=False
             )
-            if avg_val_loss_dict:
-                val_epoch_history.append(avg_val_loss_dict)
 
             pbar_postfix = {f"train_{k}": f"{v.item():.2E}" for k, v in avg_train_loss_dict.items()}
             if avg_val_loss_dict:
                 pbar_postfix.update(
                     {f"val_{k}": f"{v.item():.2E}" for k, v in avg_val_loss_dict.items()}
                 )
+                avg_val_loss_dict["step"] = total_steps
+                val_epoch_history.append(avg_val_loss_dict)
+            pbar_postfix["epoch"] = total_steps
             pbar.set_postfix(pbar_postfix)
 
             metric_to_check = (
@@ -402,16 +450,19 @@ class ODEstimator:
 
             if metric_to_check < best_loss:
                 best_loss = metric_to_check
-                hasnt_improved_counter = 0
-            else:
-                hasnt_improved_counter += 1
-            if hasnt_improved_counter > early_stopping_patience:
+                best_step = total_steps
+
+            steps_without_improvement = total_steps - best_step
+            if steps_without_improvement > early_stopping_patience:
+                print(f"\nEarly stopping: no improvement for {steps_without_improvement} steps")
                 break
 
         train_df = pd.DataFrame(train_epoch_history).add_prefix("train_")
         val_df = pd.DataFrame(val_epoch_history).add_prefix("val_")
         self.epoch_history_df = pd.concat([train_df, val_df], axis=1).astype(float)
         self.step_history_df = pd.DataFrame(train_step_history).astype(float)
+        if topk_history:
+            self.topk_history_df = pd.DataFrame(topk_history)
 
         # Clean up temporary attributes
         del self.x_

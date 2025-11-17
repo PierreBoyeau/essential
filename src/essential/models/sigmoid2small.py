@@ -7,48 +7,32 @@ import diffrax
 from .base_model import BaseModel
 
 
-class Sigmoid2Model(BaseModel):
+class Sigmoid2SmallModel(BaseModel):
     def setup(self):
-        self.Amat_ = self.param("Amat_", glorot_normal(), (self.n_genes, self.n_genes))
-        self.decay_ = self.param("decay_", ones, (self.n_genes))
+        self.Amat_ = self.param("Amat_", glorot_normal(), (self.n_genes, self.n_tfs))
+        self.decay_ = self.param("decay_", zeros, (self.n_genes))
         self.bias_term_sigmoid_ = self.param("bias_term_sigmoid_", zeros, (self.n_genes))
-        self.perturbation_effect_ = self.param("perturbation_effect_", ones, (self.n_tfs))
+        self.perturbation_effect_ = self.param("perturbation_effect_", zeros, (self.n_tfs))
         self.scale_factor_ = self.param("scale_factor_", ones, (self.n_genes))
         self.solver = diffrax.Heun()
         self.saveat = diffrax.SaveAt(t1=True)
         self.adjoint = diffrax.DirectAdjoint()
 
     def get_Amat(self):
-        Amat = self.Amat_ * (1.0 - jnp.eye(self.n_genes))
-        if self.Amask is not None:
-            Amat = Amat * self.Amask
-        return Amat
+        return self.Amat_
 
     def get_decay(self):
         return nn.softplus(self.decay_)
-        # return self.decay_
-
-    def get_scale_factor(self):
-        return nn.softplus(self.scale_factor_)
 
     def get_perturbation_effect(self):
-        # return nn.softplus(self.perturbation_effect_)
         return self.perturbation_effect_
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()
-        # u_effect = jnp.einsum("gf,f->g", self.tf2gene_indicators, u)
-        # y_effective = y * (1.0 - u_effect)
-        # y_effective = y
-        # conc_contribution = jnp.einsum("gj,j->g", A_mat, y_effective) + self.bias_term_sigmoid_
-        # u_gene = jnp.einsum("gf,f->g", self.tf2gene_indicators, u * self.get_perturbation_effect())
-        u_gene = jnp.einsum("gf,f->g", self.tf2gene_indicators, u)
-        conc_contribution = jnp.einsum("gj,j->g", A_mat, y) + self.bias_term_sigmoid_ - u_gene
-
-        # alpha = nn.sigmoid(conc_contribution)
-        alpha = nn.tanh(conc_contribution)
-        alpha = self.get_scale_factor() * alpha
-
+        u_gene = jnp.einsum("gf,f->g", self.tf2gene_indicators, u * self.get_perturbation_effect())
+        y_tf = jnp.einsum("gf,g->f", self.tf2gene_indicators, y)
+        conc_contribution = jnp.einsum("gf,f->g", A_mat, y_tf) + self.bias_term_sigmoid_ - u_gene
+        alpha = nn.sigmoid(conc_contribution)
         beta = self.get_decay() * y
         return alpha - beta
 

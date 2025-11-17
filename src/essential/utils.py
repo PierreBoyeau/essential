@@ -7,11 +7,12 @@ import subprocess
 import sklearn.metrics as metrics
 from skimage.filters import threshold_otsu
 
-from essential.ode import ODEstimator
 import hashlib
 
 
 COLUMNS_TO_KEEP = [
+    "ri_id",
+    "ri_type",
     "tf_promoter",
     "target_gene",
     "regulator_gene",
@@ -157,6 +158,8 @@ def load_regulondb_full(drop_duplicates=True):
         .assign(
             target_genes=lambda x: x["targetTuOrGene"].apply(_parse_target_genes),
             regulator_gene=lambda x: x["regulatorName"].str.lower(),
+            ri_id=lambda x: x["riId"],
+            ri_type=lambda x: x["riType"],
             # regulator_gene=lambda x: x["regulatorName"],
         )
         .explode("target_genes")  # Create one row per target gene
@@ -426,22 +429,26 @@ def get_git_hash():
 
 
 def compute_topk_precision_metrics(processed_a_mat, model_tag):
+    from essential.ode import ODEstimator
+
     ref_db = load_regulondb_full(drop_duplicates=True)
     ref_db["regulator_gene"] = ref_db["regulator_gene"].str.lower()
     ref_db["target_gene"] = ref_db["target_gene"].str.lower()
     df = ODEstimator.get_results_from_interactions(processed_a_mat, ref_db, transpose_amat=False)
-    topk_precision = compute_topk_precision(df, k_top=3000).assign(model=model_tag, type="all")
+    topk_precision = compute_topk_precision(df, k_top=3000).assign(
+        model=model_tag, type="all", direction="f"
+    )
     topk_precision_offdiag = compute_topk_precision(
         df, k_top=3000, ignore_selfregulators=True
-    ).assign(model=model_tag, type="offdiag")
+    ).assign(model=model_tag, type="offdiag", direction="f")
 
     df_t = ODEstimator.get_results_from_interactions(processed_a_mat, ref_db, transpose_amat=True)
     topk_precision_t = compute_topk_precision(df_t, k_top=3000).assign(
-        model=f"{model_tag}_t", type="all"
+        model=f"{model_tag}_t", type="all", direction="t"
     )
     topk_precision_offdiag_t = compute_topk_precision(
         df_t, k_top=3000, ignore_selfregulators=True
-    ).assign(model=f"{model_tag}_t", type="offdiag")
+    ).assign(model=f"{model_tag}_t", type="offdiag", direction="t")
 
     topk_precision_df = pd.concat(
         [topk_precision, topk_precision_offdiag, topk_precision_t, topk_precision_offdiag_t]

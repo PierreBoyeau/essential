@@ -7,7 +7,7 @@ import diffrax
 from .base_model import BaseModel
 
 
-class Sigmoid2Model(BaseModel):
+class TanhModel(BaseModel):
     def setup(self):
         self.Amat_ = self.param("Amat_", glorot_normal(), (self.n_genes, self.n_genes))
         self.decay_ = self.param("decay_", ones, (self.n_genes))
@@ -26,26 +26,17 @@ class Sigmoid2Model(BaseModel):
 
     def get_decay(self):
         return nn.softplus(self.decay_)
-        # return self.decay_
 
     def get_scale_factor(self):
         return nn.softplus(self.scale_factor_)
 
     def get_perturbation_effect(self):
-        # return nn.softplus(self.perturbation_effect_)
         return self.perturbation_effect_
 
     def ode_fn(self, y, u):
         A_mat = self.get_Amat()
-        # u_effect = jnp.einsum("gf,f->g", self.tf2gene_indicators, u)
-        # y_effective = y * (1.0 - u_effect)
-        # y_effective = y
-        # conc_contribution = jnp.einsum("gj,j->g", A_mat, y_effective) + self.bias_term_sigmoid_
-        # u_gene = jnp.einsum("gf,f->g", self.tf2gene_indicators, u * self.get_perturbation_effect())
         u_gene = jnp.einsum("gf,f->g", self.tf2gene_indicators, u)
         conc_contribution = jnp.einsum("gj,j->g", A_mat, y) + self.bias_term_sigmoid_ - u_gene
-
-        # alpha = nn.sigmoid(conc_contribution)
         alpha = nn.tanh(conc_contribution)
         alpha = self.get_scale_factor() * alpha
 

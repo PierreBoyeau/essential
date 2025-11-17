@@ -81,6 +81,7 @@ def test_cellbox_variations(synthetic_adata):
         "linearhardmultiplicative",
         "linearmultiplicative",
         "lineardecay",
+        "sigmoid3",
     ]:
         ode_model = ODEstimator(model_class=model_class, **model_kwargs)
         ode_model.fit(**fit_kwargs)
@@ -139,6 +140,25 @@ def test_cellboxlowdim_model(synthetic_adata):
         expression_type="none",
         model_kwargs={"lambda_prior": 1.5e-7, "n_latent": 64, "mode": "dynamic"},
         model_class="linearlowdim2",
+        pairing_strategy="nn",
+    )
+    ode_model.fit(
+        learning_rate=1e-2, n_epochs=1, log_every_n_steps=10, batch_size=100, batch_size_eval=5
+    )
+
+
+def test_sigmoid2small_model(synthetic_adata):
+    adata_ = synthetic_adata
+    sc.pp.filter_genes(adata_, min_cells=10)
+
+    adata_.obsm["latent_rep"] = adata_.X
+    ODEstimator.process_data(adata_, latent_obsm_key="latent_rep", K=5)
+
+    ode_model = ODEstimator(
+        adata_,
+        expression_type="none",
+        model_kwargs={"lambda_prior": 1.5e-7, "mode": "dynamic"},
+        model_class="sigmoid2small",
         pairing_strategy="nn",
     )
     ode_model.fit(

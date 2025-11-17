@@ -8,15 +8,18 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3.10 \
-    python3-pip \
+    python3.11 \
     tmux \
     git \
+    curl \
     && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --upgrade pip
-RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN curl https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+    apt-get purge -y --auto-remove curl
+
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3
 WORKDIR /workspace
 
 COPY requirements.txt .

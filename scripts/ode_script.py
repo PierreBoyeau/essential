@@ -96,6 +96,9 @@ def main(_):
     history_df.to_csv(os.path.join(folder_path, "history.csv"), index=False)
     step_history_df = estimator.step_history_df
     step_history_df.to_csv(os.path.join(folder_path, "step_history.csv"), index=False)
+    if estimator.topk_history_df is not None:
+        topk_history_df = estimator.topk_history_df
+        topk_history_df.to_csv(os.path.join(folder_path, "topk_history.csv"), index=False)
     print("--------------------------------")
     print("Experiment completed successfully")
     print("Summary of results:")

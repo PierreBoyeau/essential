@@ -12,6 +12,9 @@ from .sigmoid2 import Sigmoid2Model
 from .linearmultiplicative import LinearMultiplicativeModel
 from .lineardecay import LinearDecayModel
 from .static import StaticModel
+from .sigmoid2small import Sigmoid2SmallModel
+from .sigmoid3 import Sigmoid3Model
+from .tanh import TanhModel
 
 
 MODEL_REGISTRY = {
@@ -22,10 +25,13 @@ MODEL_REGISTRY = {
     "sigmoidhardkozeroorder": SigmoidHardKoZeroOrderModel,
     "sigmoidhardko": SigmoidHardKoModel,
     "sigmoid2": Sigmoid2Model,
+    "sigmoid3": Sigmoid3Model,
     "linearhardmultiplicative": LinearHardMultiplicativeModel,
     "linearmultiplicative": LinearMultiplicativeModel,
     "lineardecay": LinearDecayModel,
     "linearlowdim": LinearLowDimModel,
     "linearlowdim2": LinearLowDim2Model,
     "static": StaticModel,
+    "sigmoid2small": Sigmoid2SmallModel,
+    "tanh": TanhModel,
 }

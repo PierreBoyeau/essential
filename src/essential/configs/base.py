@@ -6,7 +6,6 @@ Use this as a template or import and override specific sections for custom exper
 
 from ml_collections import config_dict
 from essential.utils import get_git_hash
-import subprocess
 
 
 def get_config():
@@ -38,7 +37,7 @@ def get_config():
     config.estimator.model_class = "dynamic_cellbox"
     config.estimator.expression_type = "concentration"
     config.estimator.pairing_strategy = "nn"
-    config.estimator.subset_treated = True
+    config.estimator.subset_treated = False
     config.estimator.model_kwargs = config_dict.ConfigDict()
     config.estimator.model_kwargs.lambda_prior = 1.0
     config.estimator.model_kwargs.mode = "dynamic"
@@ -46,15 +45,16 @@ def get_config():
 
     config.training = config_dict.ConfigDict()
     config.training.learning_rate = 1e-3
-    config.training.n_epochs = 100
+    config.training.n_epochs = 10000
     config.training.batch_size = 8000
     config.training.train_size = 0.9
-    config.training.early_stopping_patience = 5
+    config.training.early_stopping_patience = 2000
     config.training.early_stopping_metric = "reco_loss"
     config.training.log_every_n_steps = 1
-    config.training.batch_size_eval = 128
+    config.training.batch_size_eval = 10000
     config.training.optimizer = None
     config.training.gradient_clip_norm = 1e5  # no gradient clipping
+    config.training.log_topk_every_n_epochs = config_dict.placeholder(int)
 
     config.output_path = None
     return config
