@@ -19,13 +19,21 @@ import json
 import hashlib
 
 
-def estimate_ode(adata, Amat_gt, model_class="dynamic_cellbox"):
+def estimate_ode(
+    adata,
+    Amat_gt,
+    model_class,
+    subset_treated=False,
+    mode="steady",
+    expression_type="none",
+):
     estimator = ODEstimator(
         adata,
         model_class=model_class,
         pairing_strategy="exact",
-        subset_treated=True,
-        expression_type="none",
+        subset_treated=subset_treated,
+        expression_type=expression_type,
+        model_kwargs={"mode": mode},
     )
     estimator.fit(n_epochs=1000, batch_size=10, batch_size_eval=10)
     Amat_pred = estimator.get_interaction_matrix()
@@ -72,22 +80,48 @@ def main(n_obs, n_genes, n_perturbed, t, sparsity, random_seed, tag, save_dir):
         n_genes=n_genes,
         n_perturbed=n_perturbed,
         sparsity=sparsity,
-        model_class="dynamic_cellbox",
+        model_class="tanh",
         random_seed=random_seed,
     )
     adata = simulator.simulate(n_obs, batch_size=100, t=t)
     Amat_gt = simulator.Amat
 
-    dynamic_cellbox_corr_dict = estimate_ode(adata, Amat_gt, model_class="dynamic_cellbox")
-    dynamic_multiplicative_corr_dict = estimate_ode(
-        adata, Amat_gt, model_class="dynamic_multiplicative"
+    # linear: mode="steady", expression_type="concentration_fixed", subset_treated=False
+    linear_corr_dict = estimate_ode(
+        adata,
+        Amat_gt,
+        model_class="linear",
+        subset_treated=False,
+        mode="steady",
+        expression_type="concentration_fixed",
+    )
+
+    # tanh: mode="steady", expression_type="concentration_fixed", subset_treated=False
+    tanh_corr_dict = estimate_ode(
+        adata,
+        Amat_gt,
+        model_class="tanh",
+        subset_treated=False,
+        mode="steady",
+        expression_type="concentration_fixed",
+    )
+
+    # tanhdynamic: mode="dynamic", expression_type="concentration_fixed", subset_treated=True
+    tanhdynamic_corr_dict = estimate_ode(
+        adata,
+        Amat_gt,
+        model_class="tanh",
+        subset_treated=True,
+        mode="dynamic",
+        expression_type="concentration_fixed",
     )
 
     results = {
         "config": config,
         "results": [
-            dynamic_cellbox_corr_dict,
-            dynamic_multiplicative_corr_dict,
+            linear_corr_dict,
+            tanh_corr_dict,
+            tanhdynamic_corr_dict,
         ],
     }
     print(results)
