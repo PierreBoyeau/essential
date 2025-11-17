@@ -45,8 +45,7 @@ class Sigmoid2Model(BaseModel):
         u_gene = jnp.einsum("gf,f->g", self.tf2gene_indicators, u)
         conc_contribution = jnp.einsum("gj,j->g", A_mat, y) + self.bias_term_sigmoid_ - u_gene
 
-        # alpha = nn.sigmoid(conc_contribution)
-        alpha = nn.tanh(conc_contribution)
+        alpha = nn.sigmoid(conc_contribution)
         alpha = self.get_scale_factor() * alpha
 
         beta = self.get_decay() * y
