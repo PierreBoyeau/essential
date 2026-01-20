@@ -1,0 +1,17 @@
+{
+    "expression": {
+        "g_reg": {
+            "hidden_dims": [
+                1024,
+                1024,
+                1024,
+                1024
+            ]
+        },
+        "f_reg": {
+            "hidden_dims": [
+                1024
+            ]
+        }
+    }
+}

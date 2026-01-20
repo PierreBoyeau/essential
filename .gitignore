@@ -1,4 +1,3 @@
-*.ipynb
 *.db
 
 # Byte-compiled / optimized / DLL files
@@ -223,4 +222,3 @@ __marimo__/
 data
 figures
 results
-experiments
