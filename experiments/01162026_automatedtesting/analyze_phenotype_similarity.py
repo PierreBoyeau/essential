@@ -1,9 +1,6 @@
 import os
 import glob
-import json
-import ast
 from typing import TypedDict, Optional
-from pathlib import Path
 
 from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -28,10 +25,6 @@ def load_report(state: AnalysisState) -> AnalysisState:
     file_path = state["file_path"]
     try:
         with open(file_path, "r") as f:
-            # We just read it as string to pass to the LLM, or we could parse it.
-            # Reading as string preserves formatting which might be nice,
-            # but usually json.load then json.dumps is safer for formatting consistency.
-            # Let's read as text to keep it simple and faithful to the file.
             content = f.read()
         return {"report_content": content}
     except Exception as e:
@@ -44,9 +37,7 @@ def generate_analysis(state: AnalysisState) -> AnalysisState:
     report_content = state.get("report_content")
     if not report_content:
         return {"analysis_output": None}
-
-    # Load system prompt
-    prompt_path = "/workspace/experiments/01162026_automatedtesting/prompts/analysis.md"
+    prompt_path = "/workspace/experiments/01162026_automatedtesting/prompts/phenotype_similarity_analysis.md"
     try:
         with open(prompt_path, "r") as f:
             system_prompt = f.read()
@@ -54,8 +45,6 @@ def generate_analysis(state: AnalysisState) -> AnalysisState:
         print(f"Error loading prompt {prompt_path}: {e}")
         return {"analysis_output": None}
 
-    # Initialize LLM
-    # Note: Expects GOOGLE_API_KEY to be set in environment
     llm = ChatGoogleGenerativeAI(model="gemini-3-pro-preview")
 
     messages = [
@@ -111,8 +100,7 @@ graph = builder.compile()
 
 
 def main():
-    # Find all report.json files
-    base_dir = "/workspace/experiments/01162026_automatedtesting/figures/individual_figures"
+    base_dir = "/workspace/experiments/01162026_automatedtesting/outputs/phenotype_similarity/test"
     pattern = os.path.join(base_dir, "*", "report.json")
     report_files = glob.glob(pattern)
 

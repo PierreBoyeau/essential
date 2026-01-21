@@ -224,3 +224,9 @@ figures
 results
 
 experiments/OLD
+*history.csv
+*Amat.npz
+*topk_precision.csv
+experiments/11172025_presentation/runs_*
+experiments/12312025_surrogate/results_*
+*outputs*

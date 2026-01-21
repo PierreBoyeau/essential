@@ -23,6 +23,7 @@ COLUMNS_TO_KEEP_REGULONDB = [
 
 # --- From data_resources.py ---
 
+
 def load_fitness_data(path: str = FITNESS_DATA_PATH) -> pd.DataFrame:
     """
     Loads the fitness data from the CSV file.
@@ -87,6 +88,7 @@ def one_hot_encode(sequence: str) -> np.ndarray:
 
 
 # --- From legacy/ode/utils.py ---
+
 
 def _parse_gene_group(gene_group):
     """

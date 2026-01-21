@@ -3,6 +3,7 @@ from kegg_utils import KEGGNavigator
 from tqdm import tqdm
 import pandas as pd
 import plotnine as gg
+import os
 
 # %%
 navigator = KEGGNavigator()
@@ -46,9 +47,35 @@ for pathway_id, pathway_description in tqdm(
 
 # %%
 gene_relationships_df = pd.DataFrame(gene_relationships)
-gene_relationships_df.to_csv("gene_relationships.csv", sep="\t")
-# %%
-gene_relationships_df.loc[lambda x: x["gene_pair"].str.contains("lpxK")]
+
+output_dir = "outputs/phenotype_similarity/prior"
+os.makedirs(output_dir, exist_ok=True)
+gene_relationships_df.to_csv(os.path.join(output_dir, "kegg_edges.csv"), sep="\t")
+
+# Consolidate gene pairs that appear in multiple pathways
+consolidated_gene_pairs = (
+    gene_relationships_df.assign(
+        pathway_description_short=lambda x: x["pathway_description"].str.split(" - ").str[0]
+    )
+    .groupby("gene_pair")
+    .agg(
+        {
+            "pathway_description_short": lambda x: "; ".join(x.unique()),
+            "interaction": lambda x: "; ".join(x.unique()),
+            "interaction_annotation": lambda x: "; ".join(x.unique()),
+        }
+    )
+    .rename(
+        columns={
+            "pathway_description_short": "pathway_description_consolidated",
+            "interaction": "interactions",
+            "interaction_annotation": "interaction_annotations",
+        }
+    )
+)
+
+consolidated_gene_pairs.to_csv(os.path.join(output_dir, "kegg_edges_consolidated.csv"), sep="\t")
+
 
 # %%
 (
