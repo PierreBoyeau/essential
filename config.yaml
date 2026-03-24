@@ -1,0 +1,15 @@
+tasks:
+  ecoli_rich_medium:
+    genes_csv: "experiments/01232026_fba/data/iJO1366_genes.csv"
+    model_type: "ecoli_rich_medium"
+
+methods:
+  - method: "gene_graph"
+    config_id: "beta_1"
+    params: { "beta": 1.0 }
+  - method: "gene_graph"
+    config_id: "beta_25"
+    params: { "beta": 25.0 }
+  - method: "fba_moma"
+    config_id: "default"
+    params: {}
