@@ -3,6 +3,7 @@ from kegg_utils import KEGGNavigator
 from tqdm import tqdm
 import pandas as pd
 import plotnine as gg
+import numpy as np
 import os
 
 # %%
@@ -14,6 +15,7 @@ print(df.head())
 
 # %%
 gene_relationships = []
+all_reactions = []
 
 for pathway_id, pathway_description in tqdm(
     df[["pathway_id", "description"]].itertuples(index=False)
@@ -21,6 +23,7 @@ for pathway_id, pathway_description in tqdm(
     kgml_met = navigator.get_pathway_kgml(pathway_id)
     parsed_met = navigator.parse_kgml_entries(kgml_met)
     G = navigator.build_gene_graph(parsed_met)
+    all_reactions.append(parsed_met["reactions"])
     for u, v, d in G.edges(data=True):
         gene_pair = f"{u}_{v}"
         interaction_type = d.get("interaction", "unknown")
@@ -43,10 +46,26 @@ for pathway_id, pathway_description in tqdm(
                 "gene_pair": gene_pair,
             }
         )
-
+all_reactions = pd.concat(all_reactions)
 
 # %%
 gene_relationships_df = pd.DataFrame(gene_relationships)
+genes_1 = gene_relationships_df["gene1"].unique()
+genes_2 = gene_relationships_df["gene2"].unique()
+genes_1_and_2 = np.intersect1d(genes_1, genes_2)
+print(f"Found {len(genes_1_and_2)} genes in both lists.")
+
+print(f"Found {all_reactions['reaction_id'].unique().shape[0]} unique reactions.")
+# %%
+gene_relationships_df = pd.DataFrame(gene_relationships)
+
+# Find the specific edge for coaA_coaD
+coaA_coaD_edges = gene_relationships_df[
+    gene_relationships_df["gene_pair"] == "coaA_coaD"
+]
+print(coaA_coaD_edges[["pathway_id", "compound", "relation_types", "relation_subtypes", "interaction_annotation"]])
+
+# %%
 
 output_dir = "outputs/phenotype_similarity/prior"
 os.makedirs(output_dir, exist_ok=True)

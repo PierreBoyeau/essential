@@ -1,3 +1,4 @@
+--extra-index-url https://pypi.nvidia.com
 scvi-tools[cuda]==1.3.3
 jupyterlab==4.4.9
 matplotlib==3.10.6
@@ -15,3 +16,14 @@ black==24.10.0
 plotly==6.3.1
 optuna==4.5.0
 ott-jax==0.6.0
+cobra==0.30.0
+cudf-cu12==25.12.*
+dask-cudf-cu12==25.12.*
+cuml-cu12==25.12.*
+cugraph-cu12==25.12.*
+nx-cugraph-cu12==25.12.*
+cuxfilter-cu12==25.12.*
+cucim-cu12==25.12.*
+pylibraft-cu12==25.12.*
+raft-dask-cu12==25.12.*
+cuvs-cu12==25.12.*

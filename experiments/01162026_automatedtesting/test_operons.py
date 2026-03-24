@@ -1,28 +1,26 @@
 # %%
 import pandas as pd
-import plotnine as gg
 import scanpy as sc
-from tqdm import tqdm
-import os
-import scipy.stats as st
-import numpy as np
-from statsmodels.stats.multitest import multipletests
 import json
+import numpy as np
+import os
+import plotnine as gg
+from tqdm import tqdm
+import scipy.stats as st
+from statsmodels.stats.multitest import multipletests
 from stats_utils import MMDTestJax
 
+# %%
+SAVE_DIR = "/workspace/experiments/01162026_automatedtesting/outputs/operon/test"
 
-FIG_DIR = (
-    "/workspace/experiments/01162026_automatedtesting/outputs/phenotype_similarity/outputs_presentation"
+hypothesis_list = pd.read_csv(
+    "/workspace/experiments/01162026_automatedtesting/outputs/operon/gene_pairs_operon.csv"
 )
-os.makedirs(FIG_DIR, exist_ok=True)
 
-gene_pair_to_description = pd.read_csv(
-    "/workspace/experiments/01162026_automatedtesting/outputs/phenotype_similarity/prior/kegg_edges_consolidated.csv",
-    sep="\t",
-    index_col="gene_pair",
-)
-unique_kegg_relationships = gene_pair_to_description.index.unique()
-
+with open(
+    "/workspace/experiments/01162026_automatedtesting/outputs/operon/gene_to_tus.json", "r"
+) as f:
+    gene_to_tus = json.load(f)
 
 adata = sc.read_h5ad(
     "/workspace/data/251117_genomescale_CRISPRi/sample_mix_umi200_hvg500_pc25_neighbors10_mindist0.55.scvi.h5ad"
@@ -31,22 +29,25 @@ adata_case = sc.read_h5ad("/workspace/data/251117_genomescale_CRISPRi/adata_case
 
 
 # %%
-class PhenotypeSimilarityAnalyzer:
+class OperonAnalyzer:
     def __init__(
         self,
         adata: sc.AnnData,
         adata_case: sc.AnnData,
-        hypothesis_description: pd.DataFrame,
+        gene_to_tus: dict,
         output_dir: str,
     ):
-        self.adata = adata
+        adata.obs["annotated_leiden_case"] = "control-like"
+        adata.obs.loc[adata_case.obs.index, "annotated_leiden_case"] = adata_case.obs[
+            "annotated_leiden_case"
+        ]
 
+        self.adata = adata
         self.adata_case = adata_case
-        self.gene_clusters_case = adata_case.obs.groupby("gene")["annotated_leiden_case"].apply(
+        self.gene_to_tus = gene_to_tus
+        self.gene_clusters_case = adata.obs.groupby("gene")["annotated_leiden_case"].apply(
             lambda x: x.value_counts().idxmax()
         )
-
-        self.hypothesis_description = hypothesis_description
         self.output_dir = output_dir
 
         self.mmd_test = MMDTestJax(kernel_type="rbf", sigma=5)
@@ -60,26 +61,26 @@ class PhenotypeSimilarityAnalyzer:
         res["mmd_padj"] = padjs
         return res
 
-    def test_hypothesis(self, hypothesis_name):
-        pathway_description = self.hypothesis_description.loc[
-            hypothesis_name, "pathway_description_consolidated"
-        ]
-        interaction_annotations = self.hypothesis_description.loc[
-            hypothesis_name, "interaction_annotations"
-        ]
-        gene1, gene2 = hypothesis_name.split("_")
-        assign1 = self.gene_clusters_case.get(gene1, "unknown")
-        assign2 = self.gene_clusters_case.get(gene2, "unknown")
-        n_obs_1 = adata_case.obs.loc[lambda x: x["gene"] == gene1, "annotated_leiden_case"].shape[0]
-        n_obs_2 = adata_case.obs.loc[lambda x: x["gene"] == gene2, "annotated_leiden_case"].shape[0]
-        if (assign1 == "unknown") and (assign2 == "unknown"):
-            variation = "both_control_like"
-        elif (assign1 == "unknown") or (assign2 == "unknown"):
-            variation = "one_control_like"
-        elif assign1 == assign2:
-            variation = "same_case_cluster"
+    def test_operon(self, gene_pair: str):
+        gene1, gene2 = gene_pair.split("_")
+
+        transcript_cluster_1 = self.gene_clusters_case.get(gene1, "unknown")
+        transcript_cluster_2 = self.gene_clusters_case.get(gene2, "unknown")
+
+        produce_unexpected_order = (transcript_cluster_1 == "control-like") and (
+            transcript_cluster_2 != "control-like"
+        )
+        produce_two_different_phenotypes = (
+            (transcript_cluster_1 != transcript_cluster_2)
+            and (transcript_cluster_2 != "control-like")
+            and (transcript_cluster_1 != "control-like")
+        )
+        if produce_unexpected_order:
+            variation = "unexpected_order"
+        elif produce_two_different_phenotypes:
+            variation = "two_different_phenotypes"
         else:
-            variation = "different_case_cluster"
+            variation = "unsurprising_variation"
 
         adata_subset = self.adata[self.adata.obs["gene"].isin([gene1, gene2])]
         adata1 = adata_subset[adata_subset.obs["gene"] == gene1]
@@ -110,35 +111,37 @@ class PhenotypeSimilarityAnalyzer:
         mmd_pvalue = self.mmd_test.test(X1_zrep, X2_zrep)
 
         results = {
-            "gene_pair": hypothesis_name,
+            "gene_pair": gene_pair,
             "gene1": gene1,
             "gene2": gene2,
             "variation": variation,
-            "transcript_cluster_1": assign1,
-            "transcript_cluster_2": assign2,
-            "n_obs_1": n_obs_1,
-            "n_obs_2": n_obs_2,
-            "pathway_description": pathway_description,
-            "interaction_annotations": interaction_annotations,
+            "transcript_cluster_1": transcript_cluster_1,
+            "transcript_cluster_2": transcript_cluster_2,
             "top_de_genes": top_de_genes,
             "mmd_pvalue": mmd_pvalue,
         }
-        self.all_results_dict[hypothesis_name] = results
+        results = self._add_gene_context(results)
+        self.all_results_dict[gene_pair] = results
         return results
 
+    def _add_gene_context(self, result: dict):
+        gene1, gene2 = result["gene1"], result["gene2"]
+        result["gene1_known_transcription_units"] = self.gene_to_tus.get(gene1, [])
+        result["gene2_known_transcription_units"] = self.gene_to_tus.get(gene2, [])
+        return result
+
     def is_surprising(self, result: dict):
-        return (
-            (result["variation"] == "different_case_cluster")
-            and (result["n_obs_1"] >= 3)
-            and (result["n_obs_2"] >= 3)
-        )
+        return result["variation"] != "unsurprising_variation"
 
     def generate_report(self, result: dict):
         results_path = os.path.join(self.output_dir, result["gene_pair"])
         os.makedirs(results_path, exist_ok=True)
 
         gene1, gene2 = result["gene1"], result["gene2"]
-        pathway_description = result["pathway_description"]
+        operon_names1 = [tu["operonName"] for tu in result["gene1_known_transcription_units"]]
+        operon_names2 = [tu["operonName"] for tu in result["gene2_known_transcription_units"]]
+        operon_names_intersect = np.intersect1d(operon_names1, operon_names2)
+        operon_name_description = "; ".join(operon_names_intersect)
 
         plot_df_case = self.adata_case.obs.copy()
         plot_df_case_subset = self.adata_case.obs[
@@ -154,7 +157,7 @@ class PhenotypeSimilarityAnalyzer:
                 alpha=1,
             )
             + gg.labs(
-                title=pathway_description,
+                title=operon_name_description,
             )
         )
         fig.save(os.path.join(results_path, "phenotype_similarity.png"))
@@ -165,19 +168,11 @@ class PhenotypeSimilarityAnalyzer:
 
 
 # %%
-analyzer = PhenotypeSimilarityAnalyzer(
-    adata, adata_case, gene_pair_to_description, output_dir=FIG_DIR
+analyzer = OperonAnalyzer(
+    adata, adata_case=adata_case, gene_to_tus=gene_to_tus, output_dir=SAVE_DIR
 )
-transcript_variation = []
-for gene_pair_info in tqdm(unique_kegg_relationships):
-    results = analyzer.test_hypothesis(gene_pair_info)
-    if analyzer.is_surprising(results):
-        analyzer.generate_report(results)
-
+for gene_pair in tqdm(hypothesis_list["gene_pair"]):
+    result = analyzer.test_operon(gene_pair)
 # %%
-#
-results_df = pd.DataFrame(list(analyzer.all_results_dict.values()), index=analyzer.all_results_dict.keys())
-results_df.to_csv(os.path.join(FIG_DIR, "results.csv"))
-# %%
-FIG_DIR
+n_discoveries_mmd = (analyzer.all_results["mmd_padj"] <= 0.05).sum()
 # %%
