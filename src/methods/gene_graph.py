@@ -9,8 +9,21 @@ from typing import List, Optional
 from .base import MetabolicRepresentationMethod
 
 DEFAULT_CURRENCY = [
-    "atp", "adp", "nad", "nadh", "h2o", "h", "coa", "pi", "ppi", "nadp", "nadph", "amp", "co2"
+    "atp",
+    "adp",
+    "nad",
+    "nadh",
+    "h2o",
+    "h",
+    "coa",
+    "pi",
+    "ppi",
+    "nadp",
+    "nadph",
+    "amp",
+    "co2",
 ]
+
 
 class GeneGraphMethod(MetabolicRepresentationMethod):
     """
@@ -21,21 +34,26 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
     The kernel K = exp(-beta * L_norm) where L_norm is the normalized graph Laplacian.
     """
 
-    def __init__(self, currency_metabolites: Optional[List[str]] = None, beta: float = 1.0, **kwargs):
+    def __init__(
+        self, currency_metabolites: Optional[List[str]] = None, beta: float = 1.0, **kwargs
+    ):
         """
         Args:
             currency_metabolites: List of metabolite IDs to exclude from the graph.
             beta: Diffusion length scale parameter (default: 1.0).
         """
-        self.currency_metabolites = set(currency_metabolites if currency_metabolites is not None else DEFAULT_CURRENCY)
+        self.currency_metabolites = set(
+            currency_metabolites if currency_metabolites is not None else DEFAULT_CURRENCY
+        )
         self.beta = beta
-        
+
         self.model = None
         self.genes = []
         self.target_genes = []
         self.kernel_matrix = None
         self._kernel_df = None
-        
+        self.gene_degrees = None
+
         self.metabolite_to_idx = {}
         self.idx_to_metabolite = {}
         self.indicator_products = None
@@ -44,24 +62,24 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
     def fit(self, model: cobra.Model, genes: List[str], **kwargs):
         """
         Fit the method by computing the diffusion kernel on the metabolic graph.
-        
+
         Args:
             model: COBRApy metabolic model.
             genes: Target list of genes to retain in the final representations.
         """
         self.model = model
         self.target_genes = genes
-        
+
         # 1. Build metabolic graph properties
         self._construct_simplified_graph()
         self._build_gene_info()
-        
+
         # 2. Compute kernel
         self._compute_kernel()
-        
+
         # 3. Filter to target genes
         self._format_kernel_df()
-        
+
         return self
 
     def _construct_simplified_graph(self):
@@ -126,13 +144,13 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
     def _compute_kernel(self):
         """
         Computes the gene graph and its diffusion kernel.
-        
+
         To compute the edge weight between gene g and gene k:
         w(g, k) = sum_{m \in (P_g \cap S_k) \cup (P_k \cap S_g)} 1 / deg(m)
-        
-        This is computed efficiently using sparse matrix operations and the 
+
+        This is computed efficiently using sparse matrix operations and the
         inclusion-exclusion principle: |A \cup B| = |A| + |B| - |A \cap B|
-        
+
         1. |A| = P * D_inv * S^T
         2. |B| = S * D_inv * P^T = (P * D_inv * S^T)^T
         3. |A \cap B| = (P \circ S) * D_inv * (P \circ S)^T
@@ -144,7 +162,7 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
 
         valid_metabolites = [m for m in self.model.metabolites if m.id in self.metabolite_to_idx]
         num_metabolites = len(self.metabolite_to_idx)
-        
+
         inv_degrees = np.zeros(num_metabolites)
         for m in valid_metabolites:
             idx = self.metabolite_to_idx[m.id]
@@ -174,7 +192,8 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
 
         # Compute gene degrees
         d_g = np.array(W.sum(axis=1)).flatten()
-        
+        self.gene_degrees = d_g
+
         with np.errstate(divide="ignore"):
             d_inv_sqrt = 1.0 / np.sqrt(d_g)
         d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.0
@@ -190,13 +209,11 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
 
     def _format_kernel_df(self):
         """Formats the kernel matrix into a DataFrame and filters to target genes."""
-        full_df = pd.DataFrame(
-            self.kernel_matrix, 
-            index=self.genes, 
-            columns=self.genes
-        )
-        
-        valid_targets = [g for g in self.target_genes if g in full_df.index]
+        full_df = pd.DataFrame(self.kernel_matrix, index=self.genes, columns=self.genes)
+        connected_mask = self.gene_degrees > 0
+        connected_genes = np.array(self.genes)[connected_mask]
+        is_valid_df = lambda g: (g in connected_genes) and (g in full_df.index)
+        valid_targets = [g for g in self.target_genes if is_valid_df(g)]
         self._kernel_df = full_df.loc[valid_targets, valid_targets]
 
     def get_kernel(self) -> pd.DataFrame:
@@ -213,16 +230,16 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
         # TODO: verify logic
         if self._kernel_df is None:
             raise ValueError("Must call fit() before get_expectations()")
-            
+
         kernel_df = self._kernel_df
-        
+
         # Extract upper triangle without diagonal
         mask = np.triu(np.ones(kernel_df.shape), k=1).astype(bool)
-        
+
         # Unstack and filter
         stacked = kernel_df.where(mask).stack().reset_index()
-        stacked.columns = ['gene1', 'gene2', 'similarity']
-        
+        stacked.columns = ["gene1", "gene2", "similarity"]
+
         # Sort by highest similarity
-        expectations = stacked.sort_values('similarity', ascending=False).reset_index(drop=True)
+        expectations = stacked.sort_values("similarity", ascending=False).reset_index(drop=True)
         return expectations

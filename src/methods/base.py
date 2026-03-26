@@ -16,7 +16,8 @@ class MetabolicRepresentationMethod(ABC):
         Args:
             model: COBRApy metabolic model.
             genes: List of gene IDs/names to generate representations for.
-            **kwargs: Additional method-specific parameters.
+            **kwargs: Additional method-specific parameters (e.g., model_type for
+                methods that need to re-instantiate the model in subprocesses).
         """
         pass
         

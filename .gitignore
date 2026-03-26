@@ -230,3 +230,5 @@ experiments/OLD
 experiments/11172025_presentation/runs_*
 experiments/12312025_surrogate/results_*
 *outputs*
+
+.snakemake

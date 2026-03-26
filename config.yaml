@@ -1,15 +1,38 @@
 tasks:
   ecoli_rich_medium:
-    genes_csv: "experiments/01232026_fba/data/iJO1366_genes.csv"
+    genes_csv: "data/251117_genomescale_CRISPRi/gene_names.csv"
     model_type: "ecoli_rich_medium"
+    transcriptomic_adata:
+      path: "data/251117_genomescale_CRISPRi/sample_mix_umi200_hvg500_pc25_neighbors10_mindist0.55.scvi.h5ad"
+      perturbation_key: "gene"
+      cp10k_layer: "cp10k"
+      # raw_layer: "counts" # Optional, used to compute cp10k_layer if not present
 
 methods:
+  - method: "gene_graph"
+    config_id: "beta_0_01"
+    params: { "beta": 0.01 }
+  - method: "gene_graph"
+    config_id: "beta_0_1"
+    params: { "beta": 0.1 }
   - method: "gene_graph"
     config_id: "beta_1"
     params: { "beta": 1.0 }
   - method: "gene_graph"
+    config_id: "beta_5"
+    params: { "beta": 5.0 }
+  - method: "gene_graph"
+    config_id: "beta_10"
+    params: { "beta": 10.0 }
+  - method: "gene_graph"
     config_id: "beta_25"
     params: { "beta": 25.0 }
+  - method: "gene_graph"
+    config_id: "beta_50"
+    params: { "beta": 50.0 }
+  - method: "gene_graph"
+    config_id: "beta_100"
+    params: { "beta": 100.0 }
   - method: "fba_moma"
     config_id: "default"
     params: {}

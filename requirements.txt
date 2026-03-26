@@ -10,6 +10,7 @@ igraph==0.11.9
 leidenalg==0.10.2
 seaborn==0.13.2
 scikit-image==0.25.2
+scikit-misc==0.5.2
 diffrax==0.7.0
 pytest==8.4.2
 black==24.10.0
@@ -27,3 +28,4 @@ cucim-cu12==25.12.*
 pylibraft-cu12==25.12.*
 raft-dask-cu12==25.12.*
 cuvs-cu12==25.12.*
+snakemake
