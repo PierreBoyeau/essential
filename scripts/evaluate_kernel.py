@@ -3,71 +3,21 @@ import json
 import os
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-def compute_centered_kernel(K):
-    n = K.shape[0]
-    H = np.eye(n) - np.ones((n, n)) / n
-    return H @ K @ H
+from src.evaluation.kernel_evaluation import (
+    compute_distance_matrix,
+    process_and_align,
+    compute_cka,
+    compute_cosine_similarity,
+    compute_spearman_off_diagonal,
+    wide_to_long,
+)
 
-
-def compute_cka(K, L):
-    K_centered = compute_centered_kernel(K)
-    L_centered = compute_centered_kernel(L)
-
-    K_norm = np.linalg.norm(K_centered, "fro")
-    L_norm = np.linalg.norm(L_centered, "fro")
-
-    if K_norm == 0 or L_norm == 0:
-        return 0.0
-
-    return np.trace(K_centered @ L_centered) / (K_norm * L_norm)
-
-
-def compute_cosine_similarity(K, L):
-    K_norm = np.linalg.norm(K, "fro")
-    L_norm = np.linalg.norm(L, "fro")
-
-    if K_norm == 0 or L_norm == 0:
-        return 0.0
-
-    return np.trace(K @ L) / (K_norm * L_norm)
-
-
-def compute_spearman_off_diagonal(K, L):
-    # Extract upper triangle indices, excluding diagonal
-    n = K.shape[0]
-    iu = np.triu_indices(n, k=1)
-
-    k_off_diag = K[iu]
-    l_off_diag = L[iu]
-
-    # Check for constant arrays to avoid NaNs
-    if np.all(k_off_diag == k_off_diag[0]) or np.all(l_off_diag == l_off_diag[0]):
-        return 0.0
-
-    corr, _ = spearmanr(k_off_diag, l_off_diag)
-    return corr
-
-
-def compute_distance_matrix(K: pd.DataFrame) -> pd.DataFrame:
-    k_diag = np.diag(K)
-    dist_squared = k_diag[:, None] + k_diag[None, :] - 2 * K
-    dist_squared = np.clip(dist_squared, 0, None)
-    D = np.sqrt(dist_squared)
-    return D
-
-
-def process_and_align(df1: pd.DataFrame, df2: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    df1.index = df1.index.astype(str)
-    df1.columns = df1.columns.astype(str)
-    df2.index = df2.index.astype(str)
-    df2.columns = df2.columns.astype(str)
-    common_genes = np.intersect1d(df1.index, df2.index)
-    df1_aligned = df1.loc[common_genes, common_genes].values
-    df2_aligned = df2.loc[common_genes, common_genes].values
-    return df1_aligned, df2_aligned
+QUANTILES = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
 
 
 def main():
@@ -79,33 +29,23 @@ def main():
     args = parser.parse_args()
 
     # Load kernels
-    if args.pred_kernel.endswith(".csv"):
-        pred_df = pd.read_csv(args.pred_kernel, index_col=0)
-    else:
-        pred_df = pd.read_pickle(args.pred_kernel)
-
-    if args.target_kernel.endswith(".csv"):
-        target_df = pd.read_csv(args.target_kernel, index_col=0)
-    else:
-        target_df = pd.read_pickle(args.target_kernel)
+    pred_kernel = pd.read_pickle(args.pred_kernel)
+    target_kernel = pd.read_pickle(args.target_kernel)
 
     # compute distance matrices
-    pred_dist = compute_distance_matrix(pred_df)
-    target_dist = compute_distance_matrix(target_df)
+    pred_dist = compute_distance_matrix(pred_kernel)
+    target_dist = compute_distance_matrix(target_kernel)
 
-    # Convert string indices to consistent format if necessary
-    pred_df.index = pred_df.index.astype(str)
-    pred_df.columns = pred_df.columns.astype(str)
-    target_df.index = target_df.index.astype(str)
-    target_df.columns = target_df.columns.astype(str)
-
-    pred_sub, target_sub = process_and_align(pred_df, target_df)
+    # kernel metrics
+    pred_sub, target_sub = process_and_align(pred_kernel, target_kernel)
     cka = compute_cka(pred_sub, target_sub)
     cos_sim = compute_cosine_similarity(pred_sub, target_sub)
-    spearman = compute_spearman_off_diagonal(pred_sub, target_sub)
+    spearman = compute_spearman_off_diagonal(pred_sub.values, target_sub.values)
 
+    # distance metrics
     pred_dist_sub, target_dist_sub = process_and_align(pred_dist, target_dist)
-    dist_corr = compute_spearman_off_diagonal(pred_dist_sub, target_dist_sub)
+    dist_corr = compute_spearman_off_diagonal(pred_dist_sub.values, target_dist_sub.values)
+
     metrics = {
         "kernel_cka": float(cka),
         "kernel_cosine_similarity": float(cos_sim),
@@ -114,6 +54,38 @@ def main():
         "n_genes": pred_sub.shape[0],
         "tag": args.tag,
     }
+
+    # metric: percentile of distances in target for smallest elements in pred
+    pred_dist_sub_long = wide_to_long(
+        pred_dist_sub,
+        "distance_pred",
+        "gene1",
+        "gene2",
+        remove_diagonal=True,
+        remove_lower_triangle=True,
+    )
+    target_dist_sub_long = wide_to_long(
+        target_dist_sub,
+        "distance_target",
+        "gene1",
+        "gene2",
+        remove_diagonal=True,
+        remove_lower_triangle=True,
+    )
+    joint_long = pd.merge(
+        pred_dist_sub_long, target_dist_sub_long, on=["gene1", "gene2"], how="inner"
+    )
+    joint_long = joint_long.sample(
+        frac=1.0, replace=False
+    )  # Shuffle to break sorting ties randomly. When many distances are zero, a stable sort could cause a single gene to dominate the top-k pairs.
+    target_dist_med = np.quantile(target_dist_sub_long["distance_target"], q=0.5)
+    for k in [50, 100, 500, 1000]:
+        joint_long_k = joint_long.sort_values(by="distance_pred").head(k)
+        target_dist_med_topk_from_pred = np.quantile(joint_long_k["distance_target"], q=0.5)
+        metrics[f"target_dist_median_of_top_{k}_pred_pairs"] = target_dist_med_topk_from_pred
+        metrics[f"target_dist_median_ratio_of_top_{k}_pred_pairs_to_global"] = (
+            target_dist_med_topk_from_pred / target_dist_med
+        )
 
     os.makedirs(os.path.dirname(args.out_metrics), exist_ok=True)
     with open(args.out_metrics, "w") as f:

@@ -5,6 +5,16 @@ import os
 import subprocess
 import hashlib
 import json
+import plotnine as gg
+
+
+PLOTNINE_DEFAULT_THEME = gg.theme(
+    axis_text=gg.element_text(size=6),
+    axis_title=gg.element_text(size=7),
+    figure_size=(3, 2),
+    title=gg.element_text(size=7),
+    legend_text=gg.element_text(size=6),
+)
 
 
 def get_hash(config):
@@ -44,5 +54,3 @@ def get_git_hash():
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "not_a_git_repo"
-
-

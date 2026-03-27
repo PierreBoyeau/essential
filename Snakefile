@@ -6,18 +6,20 @@ TARGET_KERNELS = []
 methods_df = pd.DataFrame(config["methods"])
 
 for task_name, task_cfg in config["tasks"].items():
-    for _, row in methods_df.iterrows():
-        method = row["method"]
-        config_id = row["config_id"]
-        target_path = f"results/{task_name}/{method}/{config_id}/kernel.pkl"
-        TARGET_KERNELS.append(target_path)
+    # for _, row in methods_df.iterrows():
+    #     method = row["method"]
+    #     config_id = row["config_id"]
+    #     target_path = f"results/{task_name}/{method}/{config_id}/kernel.pkl"
+    #     TARGET_KERNELS.append(target_path)
         
-        if "transcriptomic_adata" in task_cfg:
-            TARGET_KERNELS.append(f"results/{task_name}/{method}/{config_id}/kernel_metrics.json")
+    #     if "transcriptomic_adata" in task_cfg:
+    #         for target_type in ["mean_pca", "mmd"]:
+    #             TARGET_KERNELS.append(f"results/{task_name}/{method}/{config_id}/kernel_metrics_{target_type}.json")
     
     if "transcriptomic_adata" in task_cfg:
-        TARGET_KERNELS.append(f"results/{task_name}/targets/transcriptomic_distances.csv")
-        TARGET_KERNELS.append(f"results/{task_name}/targets/transcriptomic_kernel.pkl")
+        for target_type in ["mean_pca", "mmd"]:
+            TARGET_KERNELS.append(f"results/{task_name}/targets/{target_type}_distances.csv")
+            TARGET_KERNELS.append(f"results/{task_name}/targets/{target_type}_kernel.pkl")
 
 rule all:
     input:
@@ -67,15 +69,30 @@ rule generate_representation:
             --cache_fluxes {params.cache_fluxes}
         """
 
-rule generate_transcriptomic_targets:
+rule generate_targets_mean_pca:
     input:
         config="config.yaml"
     output:
-        distances="results/{task}/targets/transcriptomic_distances.csv",
-        kernel="results/{task}/targets/transcriptomic_kernel.pkl"
+        distances="results/{task}/targets/mean_pca_distances.csv",
+        kernel="results/{task}/targets/mean_pca_kernel.pkl"
     shell:
         """
-        python scripts/generate_transcriptomic_targets.py \
+        python scripts/generate_targets_mean_pca.py \
+            --task {wildcards.task} \
+            --config {input.config} \
+            --out_distances {output.distances} \
+            --out_kernel {output.kernel}
+        """
+
+rule generate_targets_mmd:
+    input:
+        config="config.yaml"
+    output:
+        distances="results/{task}/targets/mmd_distances.csv",
+        kernel="results/{task}/targets/mmd_kernel.pkl"
+    shell:
+        """
+        python scripts/generate_targets_mmd.py \
             --task {wildcards.task} \
             --config {input.config} \
             --out_distances {output.distances} \
@@ -85,14 +102,14 @@ rule generate_transcriptomic_targets:
 rule evaluate_kernel:
     input:
         pred_kernel="results/{task}/{method}/{config_id}/kernel.pkl",
-        target_kernel="results/{task}/targets/transcriptomic_kernel.pkl"
+        target_kernel="results/{task}/targets/{target_type}_kernel.pkl"
     output:
-        metrics="results/{task}/{method}/{config_id}/kernel_metrics.json"
+        metrics="results/{task}/{method}/{config_id}/kernel_metrics_{target_type}.json"
     shell:
         """
         python scripts/evaluate_kernel.py \
             --pred_kernel {input.pred_kernel} \
             --target_kernel {input.target_kernel} \
             --out_metrics {output.metrics} \
-            --tag {wildcards.method}_{wildcards.config_id}
+            --tag {wildcards.method}_{wildcards.config_id}_{wildcards.target_type}
         """
