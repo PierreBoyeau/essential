@@ -1,14 +1,16 @@
 import os
-import pandas as pd
-import numpy as np
-from joblib import Parallel, delayed
 from typing import List, Optional
+
 import cobra
+import numpy as np
+import pandas as pd
 from cobra.flux_analysis import moma, pfba
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from .base import MetabolicRepresentationMethod
 from src.data.metabolic_models import get_model
+
+from .base import MetabolicRepresentationMethod
 
 
 def _simulate_ko_chunk(gene_chunk: List[str], model_type: str):
@@ -135,6 +137,12 @@ class FBAMOMAMethod(MetabolicRepresentationMethod):
         if self.kernel is None:
             raise ValueError("Must call fit() before get_kernel()")
         return self.kernel
+
+    def get_distance(self) -> pd.DataFrame:
+        """Return the G x G symmetric distance matrix."""
+        if self.distance_df is None:
+            raise ValueError("Must call fit() before get_distance()")
+        return self.distance_df
 
     def get_expectations(self) -> pd.DataFrame:
         """

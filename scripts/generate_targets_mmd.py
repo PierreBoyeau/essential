@@ -1,32 +1,20 @@
 import argparse
-import yaml
 import os
 import sys
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import scanpy as sc
+import yaml
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.essential.gpu_utils import select_best_gpus
+
+select_best_gpus()
+
 from src.essential.stats import MMDTestJax
-
-
-def to_long_no_diagonal(df):
-    return (
-        df.stack()
-        .reset_index()
-        .rename(columns={"level_0": "gene1", "level_1": "gene2", 0: "distance"})
-        .loc[lambda x: x["gene1"] != x["gene2"]]
-        .assign(
-            gene_pair=lambda x: np.where(
-                x["gene1"] < x["gene2"],
-                x["gene1"] + "_" + x["gene2"],
-                x["gene2"] + "_" + x["gene1"],
-            ),
-        )
-        .drop_duplicates(subset=["gene_pair"], keep="first")
-    )
 
 
 def main():
@@ -87,7 +75,8 @@ def main():
     gene_to_pca = {}
     obs_genes = adata_filtered.obs[perturbation_key].values
 
-    print("Subsampling to max 50 cells per gene...")
+    print("Max number of capsules per gene:", obs_genes.value_counts().max())
+    print("Subsampling to max 50 capsules per gene...")
     np.random.seed(42)
     for gene in valid_genes:
         idx = np.where(obs_genes == gene)[0]
@@ -168,13 +157,11 @@ def main():
 
     kernel_df = pd.DataFrame(kernel_matrix, index=genes, columns=genes)
 
-    distance_long = to_long_no_diagonal(distance_df).rename(columns={"distance": "distance_mmd"})
-
     print("Saving outputs...")
     os.makedirs(os.path.dirname(args.out_distances), exist_ok=True)
     os.makedirs(os.path.dirname(args.out_kernel), exist_ok=True)
 
-    distance_long.to_csv(args.out_distances, index=False)
+    distance_df.to_pickle(args.out_distances)
     kernel_df.to_pickle(args.out_kernel)
     print("Done!")
 

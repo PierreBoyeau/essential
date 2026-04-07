@@ -2,23 +2,39 @@ import pandas as pd
 
 configfile: "config.yaml"
 
+envvars:
+    "GOOGLE_API_KEY"
+
+
 TARGET_KERNELS = []
 methods_df = pd.DataFrame(config["methods"])
 
+wildcard_constraints:
+    method="|".join(methods_df["method"].unique())
+
 for task_name, task_cfg in config["tasks"].items():
-    # for _, row in methods_df.iterrows():
-    #     method = row["method"]
-    #     config_id = row["config_id"]
-    #     target_path = f"results/{task_name}/{method}/{config_id}/kernel.pkl"
-    #     TARGET_KERNELS.append(target_path)
+    for _, row in methods_df.iterrows():
+        method = row["method"]
+        config_id = row["config_id"]
+        target_path = f"results/{task_name}/pred/{method}_{config_id}/kernel.pkl"
+        TARGET_KERNELS.append(target_path)
+
+        kegg_metrics_path = f"results/{task_name}/pred/{method}_{config_id}/kegg_metrics.csv"
+        TARGET_KERNELS.append(kegg_metrics_path)
         
-    #     if "transcriptomic_adata" in task_cfg:
-    #         for target_type in ["mean_pca", "mmd"]:
-    #             TARGET_KERNELS.append(f"results/{task_name}/{method}/{config_id}/kernel_metrics_{target_type}.json")
+        if "transcriptomic_adata" in task_cfg:
+            for target_type in ["mmd"]:
+                TARGET_KERNELS.append(f"results/{task_name}/pred/{method}_{config_id}/kernel_metrics_{target_type}.json")
+                TARGET_KERNELS.append(f"results/{task_name}/pred/{method}_{config_id}/distance_metrics_{target_type}.json")
+
+                for run_idx in range(3):
+                    TARGET_KERNELS.append(f"results/{task_name}/pred/{method}_{config_id}/llm_relevance_run_{run_idx}.json")
+                    TARGET_KERNELS.append(f"results/{task_name}/pred/{method}_{config_id}/llm_mechanism_{target_type}_run_{run_idx}.json")
+
     
     if "transcriptomic_adata" in task_cfg:
         for target_type in ["mean_pca", "mmd"]:
-            TARGET_KERNELS.append(f"results/{task_name}/targets/{target_type}_distances.csv")
+            TARGET_KERNELS.append(f"results/{task_name}/targets/{target_type}_distances.pkl")
             TARGET_KERNELS.append(f"results/{task_name}/targets/{target_type}_kernel.pkl")
 
 rule all:
@@ -29,7 +45,7 @@ rule write_params:
     input:
         cfg="config.yaml"
     output:
-        "results/{task}/{method}/{config_id}/params.json"
+        "results/{task}/pred/{method}_{config_id}/params.json"
     run:
         import json
 
@@ -52,18 +68,20 @@ rule write_params:
 
 rule generate_representation:
     input:
-        config_json="results/{task}/{method}/{config_id}/params.json"
+        config_json="results/{task}/pred/{method}_{config_id}/params.json"
     output:
-        kernel="results/{task}/{method}/{config_id}/kernel.pkl",
-        expectations="results/{task}/{method}/{config_id}/expectations.csv",
+        kernel="results/{task}/pred/{method}_{config_id}/kernel.pkl",
+        distances="results/{task}/pred/{method}_{config_id}/distances.pkl",
+        expectations="results/{task}/pred/{method}_{config_id}/expectations.csv",
     params:
-        cache_fluxes=lambda wildcards: f"results/{wildcards.task}/{wildcards.method}/{wildcards.config_id}/.flux_cache.csv"
+        cache_fluxes=lambda wildcards: f"results/{wildcards.task}/pred/{wildcards.method}_{wildcards.config_id}/.flux_cache.csv"
     threads: 100
     shell:
         """
         python scripts/generate_representations.py \
             --config_json {input.config_json} \
             --out_kernel {output.kernel} \
+            --out_distances {output.distances} \
             --out_expectations {output.expectations} \
             --threads 100 \
             --cache_fluxes {params.cache_fluxes}
@@ -73,7 +91,7 @@ rule generate_targets_mean_pca:
     input:
         config="config.yaml"
     output:
-        distances="results/{task}/targets/mean_pca_distances.csv",
+        distances="results/{task}/targets/mean_pca_distances.pkl",
         kernel="results/{task}/targets/mean_pca_kernel.pkl"
     shell:
         """
@@ -88,7 +106,7 @@ rule generate_targets_mmd:
     input:
         config="config.yaml"
     output:
-        distances="results/{task}/targets/mmd_distances.csv",
+        distances="results/{task}/targets/mmd_distances.pkl",
         kernel="results/{task}/targets/mmd_kernel.pkl"
     shell:
         """
@@ -101,15 +119,147 @@ rule generate_targets_mmd:
 
 rule evaluate_kernel:
     input:
-        pred_kernel="results/{task}/{method}/{config_id}/kernel.pkl",
+        pred_kernel="results/{task}/pred/{method}_{config_id}/kernel.pkl",
         target_kernel="results/{task}/targets/{target_type}_kernel.pkl"
     output:
-        metrics="results/{task}/{method}/{config_id}/kernel_metrics_{target_type}.json"
+        metrics="results/{task}/pred/{method}_{config_id}/kernel_metrics_{target_type}.json"
     shell:
         """
         python scripts/evaluate_kernel.py \
             --pred_kernel {input.pred_kernel} \
             --target_kernel {input.target_kernel} \
             --out_metrics {output.metrics} \
-            --tag {wildcards.method}_{wildcards.config_id}_{wildcards.target_type}
+            --tag {wildcards.method}_{wildcards.config_id}
+        """
+
+rule evaluate_distance:
+    input:
+        pred_distance="results/{task}/pred/{method}_{config_id}/distances.pkl",
+        target_distance="results/{task}/targets/{target_type}_distances.pkl"
+    output:
+        metrics="results/{task}/pred/{method}_{config_id}/distance_metrics_{target_type}.json"
+    shell:
+        """
+        python scripts/evaluate_distance.py \
+            --pred_distance {input.pred_distance} \
+            --target_distance {input.target_distance} \
+            --out_metrics {output.metrics} \
+            --tag {wildcards.method}_{wildcards.config_id}
+        """
+
+
+rule evaluate_kegg_pathways:
+    input:
+        pred_distance="results/{task}/pred/{method}_{config_id}/distances.pkl",
+        kegg_json="data/KEGG/eco_pathways.json"
+    output:
+        metrics_csv="results/{task}/pred/{method}_{config_id}/kegg_metrics.csv"
+    shell:
+        """
+        python scripts/evaluate_kegg_pathways.py \
+            --distance_matrix {input.pred_distance} \
+            --kegg_json {input.kegg_json} \
+            --out_csv {output.metrics_csv}
+        """
+
+rule generate_relevance_pairs:
+    input:
+        pred_distance="results/{task}/pred/{method}_{config_id}/distances.pkl"
+    output:
+        pairs="results/{task}/pred/{method}_{config_id}/relevance_pairs.json"
+    run:
+        import json
+        import pandas as pd
+        from src.evaluation.kernel_evaluation import wide_to_long
+        
+        K = config["llm_evaluation"]["top_k_pairs"]
+        
+        pred_dist = pd.read_pickle(input.pred_distance)
+        pred_dist_long = wide_to_long(
+            pred_dist,
+            "distance_pred",
+            "gene1",
+            "gene2",
+            remove_diagonal=True,
+            remove_lower_triangle=True,
+        )
+        
+        top_k = pred_dist_long.sort_values(by="distance_pred").head(K)
+        pairs_list = [f"{row['gene1']}_{row['gene2']}" for _, row in top_k.iterrows()]
+        
+        with open(output.pairs, "w") as f:
+            json.dump(pairs_list, f, indent=4)
+
+rule generate_mechanism_pairs:
+    input:
+        pred_distance="results/{task}/pred/{method}_{config_id}/distances.pkl",
+        target_distance="results/{task}/targets/{target_type}_distances.pkl"
+    output:
+        pairs="results/{task}/pred/{method}_{config_id}/mechanism_pairs_{target_type}.json"
+    run:
+        import json
+        import pandas as pd
+        from src.evaluation.kernel_evaluation import process_and_align, wide_to_long
+        
+        K = config["llm_evaluation"]["top_k_pairs"]
+        tau = config["llm_evaluation"]["transcriptomic_tau"]
+        
+        pred_dist = pd.read_pickle(input.pred_distance)
+        target_dist = pd.read_pickle(input.target_distance)
+        
+        pred_dist_sub, target_dist_sub = process_and_align(pred_dist, target_dist)
+        
+        pred_dist_sub_long = wide_to_long(
+            pred_dist_sub,
+            "distance_pred",
+            "gene1",
+            "gene2",
+            remove_diagonal=True,
+            remove_lower_triangle=True,
+        )
+        target_dist_sub_long = wide_to_long(
+            target_dist_sub,
+            "distance_target",
+            "gene1",
+            "gene2",
+            remove_diagonal=True,
+            remove_lower_triangle=True,
+        )
+        joint_long = pd.merge(
+            pred_dist_sub_long, target_dist_sub_long, on=["gene1", "gene2"], how="inner"
+        )
+        
+        filtered = joint_long[joint_long["distance_target"] > tau]
+        top_k = filtered.sort_values(by="distance_pred").head(K)
+        pairs_list = [f"{row['gene1']}_{row['gene2']}" for _, row in top_k.iterrows()]
+        
+        with open(output.pairs, "w") as f:
+            json.dump(pairs_list, f, indent=4)
+
+rule run_llm_evaluation_relevance:
+    input:
+        pairs="results/{task}/pred/{method}_{config_id}/relevance_pairs.json",
+        prompt="prompts/pair_relevance.md"
+    output:
+        llm_out="results/{task}/pred/{method}_{config_id}/llm_relevance_run_{run_idx}.json"
+    shell:
+        """
+        python scripts/evaluate_llm_pairs.py \
+            --prompt_file {input.prompt} \
+            --pairs_file {input.pairs} \
+            --output_file {output.llm_out}
+        """
+
+rule run_llm_evaluation_mechanism:
+    input:
+        pairs="results/{task}/pred/{method}_{config_id}/mechanism_pairs_{target_type}.json",
+        prompt="prompts/pair_mechanism.md"
+    output:
+        llm_out="results/{task}/pred/{method}_{config_id}/llm_mechanism_{target_type}_run_{run_idx}.json"
+    shell:
+        """
+        python scripts/evaluate_llm_pairs.py \
+            --prompt_file {input.prompt} \
+            --pairs_file {input.pairs} \
+            --output_file {output.llm_out}
         """

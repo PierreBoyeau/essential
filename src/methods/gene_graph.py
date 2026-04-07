@@ -1,10 +1,11 @@
+from typing import List, Optional
+
+import cobra
 import numpy as np
 import pandas as pd
-from scipy.sparse import csr_matrix
-import scipy.sparse as sp
 import scipy.linalg
-import cobra
-from typing import List, Optional
+import scipy.sparse as sp
+from scipy.sparse import csr_matrix
 
 from .base import MetabolicRepresentationMethod
 
@@ -45,6 +46,8 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
         self.currency_metabolites = set(
             currency_metabolites if currency_metabolites is not None else DEFAULT_CURRENCY
         )
+        if beta == "None":
+            beta = None
         self.beta = beta
 
         self.model = None
@@ -205,6 +208,15 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
         L_norm = sp.eye(num_genes) - transition_matrix
         L_norm_dense = L_norm.toarray()
 
+        if self.beta is None:
+            eigenvalues = scipy.linalg.eigvalsh(L_norm_dense)
+            positive_eigenvalues = eigenvalues[eigenvalues > 1e-8]
+            if len(positive_eigenvalues) > 0:
+                lambda_2 = positive_eigenvalues[0]
+                self.beta = 1.0 / lambda_2
+            else:
+                self.beta = 1.0
+            print(f"Computed beta: {self.beta}")
         self.kernel_matrix = scipy.linalg.expm(-self.beta * L_norm_dense)
 
     def _format_kernel_df(self):
@@ -221,6 +233,19 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
         if self._kernel_df is None:
             raise ValueError("Must call fit() before get_kernel()")
         return self._kernel_df
+
+    def get_distance(self) -> pd.DataFrame:
+        """Return the G x G symmetric distance matrix."""
+        if self._kernel_df is None:
+            raise ValueError("Must call fit() before get_distance()")
+
+        K = self._kernel_df.values
+        k_diag = np.diag(K)
+        dist_squared = k_diag[:, None] + k_diag[None, :] - 2 * K
+        dist_squared = np.clip(dist_squared, 0, None)
+        D = np.sqrt(dist_squared)
+
+        return pd.DataFrame(D, index=self._kernel_df.index, columns=self._kernel_df.columns)
 
     def get_expectations(self) -> pd.DataFrame:
         """

@@ -10,29 +10,21 @@ tasks:
 
 methods:
   - method: "gene_graph"
-    config_id: "beta_0_01"
-    params: { "beta": 0.01 }
-  - method: "gene_graph"
-    config_id: "beta_0_1"
-    params: { "beta": 0.1 }
+    config_id: "beta_auto"
+    params: { "beta": None }
   - method: "gene_graph"
     config_id: "beta_1"
     params: { "beta": 1.0 }
-  - method: "gene_graph"
-    config_id: "beta_5"
-    params: { "beta": 5.0 }
-  - method: "gene_graph"
-    config_id: "beta_10"
-    params: { "beta": 10.0 }
-  - method: "gene_graph"
-    config_id: "beta_25"
-    params: { "beta": 25.0 }
-  - method: "gene_graph"
-    config_id: "beta_50"
-    params: { "beta": 50.0 }
-  - method: "gene_graph"
-    config_id: "beta_100"
-    params: { "beta": 100.0 }
   - method: "fba_moma"
     config_id: "default"
     params: {}
+  - method: "fba_gene_graph"
+    config_id: "beta_auto"
+    params: { "beta": None }
+  - method: "fba_gene_graph"
+    config_id: "beta_1"
+    params: { "beta": 1.0 }
+
+llm_evaluation:
+  top_k_pairs: 100
+  transcriptomic_tau: 0.1

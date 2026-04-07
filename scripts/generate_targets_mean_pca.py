@@ -1,9 +1,10 @@
 import argparse
-import yaml
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import scanpy as sc
+import yaml
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import euclidean_distances
 
@@ -21,23 +22,6 @@ def compute_pairwise(df1, df2=None, metric="euclidean"):
         pairwise_d = metric_func(df1, df2)
         pairwise_d = pd.DataFrame(pairwise_d, index=df1.index, columns=df2.index)
     return pairwise_d
-
-
-def to_long_no_diagonal(df):
-    return (
-        df.stack()
-        .reset_index()
-        .rename(columns={"level_0": "gene1", "level_1": "gene2", 0: "distance"})
-        .loc[lambda x: x["gene1"] != x["gene2"]]
-        .assign(
-            gene_pair=lambda x: np.where(
-                x["gene1"] < x["gene2"],
-                x["gene1"] + "_" + x["gene2"],
-                x["gene2"] + "_" + x["gene1"],
-            ),
-        )
-        .drop_duplicates(subset=["gene_pair"], keep="first")
-    )
 
 
 def main():
@@ -103,9 +87,6 @@ def main():
 
     print("Computing pairwise distances and kernel...")
     transcript_pairwise_pc = compute_pairwise(transcript_df_pca_, metric="euclidean")
-    distance_pc = to_long_no_diagonal(transcript_pairwise_pc).rename(
-        columns={"distance": "distance_pc"}
-    )
 
     # Compute the transcriptomic kernel using the linear kernel
     K_transcript = transcript_df_pca_ @ transcript_df_pca_.T
@@ -114,7 +95,7 @@ def main():
     os.makedirs(os.path.dirname(args.out_distances), exist_ok=True)
     os.makedirs(os.path.dirname(args.out_kernel), exist_ok=True)
 
-    distance_pc.to_csv(args.out_distances, index=False)
+    transcript_pairwise_pc.to_pickle(args.out_distances)
     K_transcript.to_pickle(args.out_kernel)
     print("Done!")
 
