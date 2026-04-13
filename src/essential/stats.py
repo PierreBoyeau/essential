@@ -192,6 +192,7 @@ class MMDTestJax:
         """
         Computes the MMD statistic between X and Y using JAX.
         """
+        self._preprocess(X, Y)
 
         m = X.shape[0]
         n = Y.shape[0]
