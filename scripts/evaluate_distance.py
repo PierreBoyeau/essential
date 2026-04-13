@@ -10,7 +10,7 @@ import scipy.stats as stats
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-from src.evaluation.kernel_evaluation import (
+from src.essential.legacy.benchmark.evaluation.kernel_evaluation import (
     compute_spearman_off_diagonal,
     process_and_align,
     wide_to_long,

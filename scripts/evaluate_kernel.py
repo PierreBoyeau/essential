@@ -9,7 +9,7 @@ import pandas as pd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-from src.evaluation.kernel_evaluation import (
+from src.essential.legacy.benchmark.evaluation.kernel_evaluation import (
     compute_cka,
     compute_cosine_similarity,
     compute_distance_matrix,

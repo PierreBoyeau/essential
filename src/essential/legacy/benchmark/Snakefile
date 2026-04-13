@@ -170,7 +170,7 @@ rule generate_relevance_pairs:
     run:
         import json
         import pandas as pd
-        from src.evaluation.kernel_evaluation import wide_to_long
+        from src.essential.legacy.benchmark.evaluation.kernel_evaluation import wide_to_long
         
         K = config["llm_evaluation"]["top_k_pairs"]
         
@@ -199,7 +199,7 @@ rule generate_mechanism_pairs:
     run:
         import json
         import pandas as pd
-        from src.evaluation.kernel_evaluation import process_and_align, wide_to_long
+        from src.essential.legacy.benchmark.evaluation.kernel_evaluation import process_and_align, wide_to_long
         
         K = config["llm_evaluation"]["top_k_pairs"]
         tau = config["llm_evaluation"]["transcriptomic_tau"]

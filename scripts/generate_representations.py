@@ -8,7 +8,8 @@ import pandas as pd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.data.metabolic_models import get_model
-from src.methods import METHOD_REGISTRY
+
+from src.essential.legacy.benchmark.methods import METHOD_REGISTRY
 
 
 def main():
