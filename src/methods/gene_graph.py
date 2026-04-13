@@ -193,6 +193,8 @@ class GeneGraphMethod(MetabolicRepresentationMethod):
         W.setdiag(0)
         W = W.tocsr()
 
+        self.adjacency_matrix = W
+
         # Compute gene degrees
         d_g = np.array(W.sum(axis=1)).flatten()
         self.gene_degrees = d_g

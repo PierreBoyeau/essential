@@ -12,11 +12,13 @@ RUN apt-get update && \
     tmux \
     git \
     curl \
+    zstd \
     && \
     rm -rf /var/lib/apt/lists/*
 
-RUN curl https://bootstrap.pypa.io/get-pip.py | python3.11 && \
-    apt-get purge -y --auto-remove curl
+RUN curl https://bootstrap.pypa.io/get-pip.py | python3.11
+
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
     ln -sf /usr/bin/python3.11 /usr/bin/python3

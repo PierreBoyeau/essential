@@ -24,6 +24,9 @@ methods:
   - method: "fba_gene_graph"
     config_id: "beta_1"
     params: { "beta": 1.0 }
+  - method: "llm_embedding"
+    config_id: "default"
+    params: { "model_name": "embeddinggemma" }
 
 llm_evaluation:
   top_k_pairs: 100

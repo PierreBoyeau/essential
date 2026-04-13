@@ -17,23 +17,12 @@ from src.evaluation.kernel_evaluation import (
 )
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--pred_distance", required=True)
-    parser.add_argument("--target_distance", required=True)
-    parser.add_argument("--out_metrics", required=True)
-    parser.add_argument("--tag", required=True)
-    args = parser.parse_args()
-
-    # Load distances
-    pred_dist = pd.read_pickle(args.pred_distance)
-    target_dist = pd.read_pickle(args.target_distance)
-
+def evaluate_distances(pred_dist, target_dist, tag="tag"):
     # distance metrics
     pred_dist_sub, target_dist_sub = process_and_align(pred_dist, target_dist)
     metrics = {
         "n_genes": pred_dist_sub.shape[0],
-        "tag": args.tag,
+        "tag": tag,
     }
 
     # metric: percentile of distances in target for smallest elements in pred
@@ -99,6 +88,23 @@ def main():
                     )
                 else:
                     metrics[f"target_dist_median_ratio_of_top_{k}_pred_pairs_to_global"] = 0.0
+
+    return metrics
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pred_distance", required=True)
+    parser.add_argument("--target_distance", required=True)
+    parser.add_argument("--out_metrics", required=True)
+    parser.add_argument("--tag", required=True)
+    args = parser.parse_args()
+
+    # Load distances
+    pred_dist = pd.read_pickle(args.pred_distance)
+    target_dist = pd.read_pickle(args.target_distance)
+
+    metrics = evaluate_distances(pred_dist, target_dist, tag=args.tag)
 
     os.makedirs(os.path.dirname(args.out_metrics), exist_ok=True)
     with open(args.out_metrics, "w") as f:
