@@ -1,13 +1,14 @@
 """
-Pathway discontinuity: graph helpers and (planned) MMD-based scores on gene pairs.
+Pathway discontinuity: graph helpers and MMD-based scores on gene pairs.
 
-Edge equivalence on the operational graph is computed in ``fit`` / ``compute_graph_equivalences``
-once scores exist; ``compute_pair_score`` returns only a scalar MMD statistic or p-value.
+Genes are nodes in the metabolic graph. Edge equivalence on the operational graph
+is computed in ``fit`` / ``compute_graph_equivalences`` once scores exist;
+``compute_pair_score`` returns only a scalar MMD statistic or p-value.
 """
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Literal, Mapping
+from typing import Any, Literal, Mapping
 
 import networkx as nx
 import numpy as np
@@ -17,7 +18,6 @@ from anndata import AnnData
 from essential.equivalence_results import EquivalenceResults
 from essential.stats import MMDTestJax
 
-Edge = tuple[str, str]  # Undirected edge as a sorted 2-tuple (lexicographic on node ids).
 GenePair = tuple[str, str]  # Gene pair; use ``_normalize_gene_pair`` for a canonical key.
 
 
@@ -51,11 +51,6 @@ def global_sigma_median_heuristic(
     return float(np.sqrt(median_sq_dist) if median_sq_dist > 0 else 1.0)
 
 
-def _normalize_edge(u: Any, v: Any) -> Edge:
-    a, b = sorted((str(u), str(v)))
-    return (a, b)
-
-
 def _normalize_gene_pair(g1: str, g2: str) -> GenePair:
     a, b = sorted((g1, g2))
     return (a, b)
@@ -65,7 +60,10 @@ class PathwayDiscontinuity:
     """
     Statistics along a metabolic graph G = (V, E) with expression in ``adata``.
 
-    ``MultiGraph`` / edge-keyed graphs are not handled yet; use a simple ``networkx.Graph``.
+    Nodes are genes (or reactions); edges encode metabolic adjacency, including
+    convergent reactions with multiple substrates from independent pathways.
+    ``MultiGraph`` / edge-keyed graphs are not handled; use a simple ``networkx.Graph``
+    or ``networkx.DiGraph``.
     """
 
     def __init__(
@@ -91,36 +89,14 @@ class PathwayDiscontinuity:
         self.global_sigma = float(global_sigma)
         self._mmd = MMDTestJax(sigma=self.global_sigma, max_n=500)
 
-
-    def _compute_line_graph(self, g: nx.Graph | nx.DiGraph) -> nx.Graph:
+    def _extract_adjacent_pairs(self, g: nx.Graph | nx.DiGraph) -> set[frozenset[str]]:
         """
-        Line graph L(G): nodes are edges of G; two nodes are adjacent if the corresponding
-        edges share an endpoint in G. Always operates on the undirected version so that all
-        edges meeting at a metabolite are treated as consecutive, regardless of reaction direction.
+        All unordered pairs of gene names directly connected by an edge in G.
+        For directed graphs the undirected adjacency is used, so direction encodes
+        pathway flow but does not restrict which pairs are scored.
         """
-        return nx.line_graph(g.to_undirected() if g.is_directed() else g)
-
-    def _extract_consecutive_pairs(self, g: nx.Graph) -> set[frozenset[str]]:
-        """
-        All unordered pairs of gene names whose edges share a vertex in G (consecutive edges).
-        Equivalent to the edge set of the line graph, with each node mapped to its gene name.
-        """
-        lg = self._compute_line_graph(g)
-        pairs: set[frozenset[str]] = set()
-        for n1, n2 in lg.edges():
-            gene1 = self._get_edge_gene(g, n1[0], n1[1])
-            gene2 = self._get_edge_gene(g, n2[0], n2[1])
-            pairs.add(frozenset((gene1, gene2)))
-        return pairs
-
-    def _get_edge_gene(self, g: nx.Graph, u: str, v: str) -> str:
-        """Helper to get gene name from an edge, falling back to string representation of the edge."""
-        edge_data = g.get_edge_data(u, v)
-        if edge_data and "name" in edge_data:
-            return edge_data["name"]
-        elif edge_data and "gene" in edge_data:
-            return edge_data["gene"]
-        return str(_normalize_edge(u, v))
+        ug = g.to_undirected() if g.is_directed() else g
+        return {frozenset((str(u), str(v))) for u, v in ug.edges()}
 
     def compute_pair_score(
         self,
@@ -144,29 +120,25 @@ class PathwayDiscontinuity:
         self,
         edge_dissimilarity: Mapping[frozenset[str], float],
         *,
-        threshold,
+        threshold: float,
     ) -> dict[int, list[str]]:
         """
-        Build the operational graph from the line graph of the metabolic graph, keeping only
-        edges whose dissimilarity score is below ``threshold``, then return connected components
-        as equivalence classes.
+        Build the operational graph from the metabolic graph, keeping only edges
+        whose dissimilarity score is below ``threshold``, then return connected
+        components as equivalence classes.
 
         Nodes with no retained neighbor form singleton classes.
         """
         g = self.metabolic_graph
-        lg = self._compute_line_graph(g)
+        ug = g.to_undirected() if g.is_directed() else g
 
         op_graph: nx.Graph = nx.Graph()
-        # populate nodes
-        for node in lg.nodes():
-            op_graph.add_node(self._get_edge_gene(g, node[0], node[1]))
+        op_graph.add_nodes_from(str(n) for n in ug.nodes())
 
-        # populate edges iff the 
-        for n1, n2 in lg.edges():
-            gene1 = self._get_edge_gene(g, n1[0], n1[1])
-            gene2 = self._get_edge_gene(g, n2[0], n2[1])
+        for u, v in ug.edges():
+            gene1, gene2 = str(u), str(v)
             dissimilarity_score = edge_dissimilarity.get(frozenset((gene1, gene2)))
-            if dissimilarity_score <= threshold:
+            if dissimilarity_score is not None and dissimilarity_score <= threshold:
                 op_graph.add_edge(gene1, gene2)
 
         return {
@@ -174,17 +146,22 @@ class PathwayDiscontinuity:
             for cid, component in enumerate(nx.connected_components(op_graph))
         }
 
-    def fit(self, metabolic_graph: nx.Graph | nx.DiGraph | None = None, threshold: float | None = None, **kwargs) -> EquivalenceResults:
+    def fit(
+        self,
+        metabolic_graph: nx.Graph | nx.DiGraph | None = None,
+        threshold: float | None = None,
+        **kwargs,
+    ) -> EquivalenceResults:
         if metabolic_graph is not None:
             self.metabolic_graph = metabolic_graph
 
         g = self.metabolic_graph
-        consecutive_pairs = self._extract_consecutive_pairs(g)
+        adjacent_pairs = self._extract_adjacent_pairs(g)
 
         edge_dissimilarity: dict[frozenset[str], float] = {}
         records = []
 
-        for pair in consecutive_pairs:
+        for pair in adjacent_pairs:
             gene1, gene2 = tuple(pair)
             score = self.compute_pair_score(gene1, gene2, **kwargs)
             edge_dissimilarity[pair] = score

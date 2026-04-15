@@ -383,12 +383,8 @@ def _merge_consecutive_gene_edges(g: nx.DiGraph) -> set[str]:
             safe_to_merge = True
             for node in intermediates:
                 other_edges = [
-                    (u, v) for u, v, d in g.in_edges(node, data=True)
-                    if d.get("gene") != gene
-                ] + [
-                    (u, v) for u, v, d in g.out_edges(node, data=True)
-                    if d.get("gene") != gene
-                ]
+                    (u, v) for u, v, d in g.in_edges(node, data=True) if d.get("gene") != gene
+                ] + [(u, v) for u, v, d in g.out_edges(node, data=True) if d.get("gene") != gene]
                 if other_edges:
                     safe_to_merge = False
                     break
@@ -454,9 +450,7 @@ def _deduplicate_genes(g: nx.DiGraph) -> set[str]:
     for u, v, data in g.edges(data=True):
         gene_edges[data.get("gene", "")].append((u, v))
 
-    multi_genes = {
-        gene: edges for gene, edges in gene_edges.items() if len(edges) > 1
-    }
+    multi_genes = {gene: edges for gene, edges in gene_edges.items() if len(edges) > 1}
     if not multi_genes:
         return set()
 
@@ -467,9 +461,7 @@ def _deduplicate_genes(g: nx.DiGraph) -> set[str]:
 
     for gene in processing_order:
         # re-collect edges: earlier rounds may have altered the graph
-        current_edges = [
-            (u, v) for u, v, d in g.edges(data=True) if d.get("gene") == gene
-        ]
+        current_edges = [(u, v) for u, v, d in g.edges(data=True) if d.get("gene") == gene]
         if len(current_edges) <= 1:
             continue
 
@@ -481,9 +473,7 @@ def _deduplicate_genes(g: nx.DiGraph) -> set[str]:
             removed_data: list[tuple[str, str, dict]] = []
             for sibling in current_edges:
                 if sibling != candidate:
-                    removed_data.append(
-                        (sibling[0], sibling[1], g[sibling[0]][sibling[1]].copy())
-                    )
+                    removed_data.append((sibling[0], sibling[1], g[sibling[0]][sibling[1]].copy()))
                     g.remove_edge(*sibling)
 
             # score: size of largest weakly connected component
@@ -536,7 +526,7 @@ def _normalize_pathway_id(pathway_id: str, organism: str) -> str:
     """Return a bare pathway ID like ``eco00010``."""
     pid = pathway_id.strip()
     if pid.startswith("path:"):
-        pid = pid[len("path:"):]
+        pid = pid[len("path:") :]
     if pid.isdigit():
         pid = organism + pid.zfill(5)
     return pid
@@ -610,12 +600,8 @@ def _kgml_to_graph(
         rxn_id = rxn_elem.get("name", "")
         reversible = rxn_elem.get("type") == "reversible"
 
-        substrates = [
-            s.get("name") for s in rxn_elem.findall("substrate") if s.get("name")
-        ]
-        products = [
-            p.get("name") for p in rxn_elem.findall("product") if p.get("name")
-        ]
+        substrates = [s.get("name") for s in rxn_elem.findall("substrate") if s.get("name")]
+        products = [p.get("name") for p in rxn_elem.findall("product") if p.get("name")]
         gene_entries = reaction_to_genes.get(rxn_id, [])
 
         # Fall back to the reaction ID itself when no gene is annotated
@@ -623,13 +609,15 @@ def _kgml_to_graph(
         if not gene_entries:
             gene_entries = [{"short_name": rxn_id, "name": "", "reaction_ids": set()}]
 
-        parsed_reactions.append({
-            "rxn_id": rxn_id,
-            "reversible": reversible,
-            "substrates": substrates,
-            "products": products,
-            "gene_entries": gene_entries,
-        })
+        parsed_reactions.append(
+            {
+                "rxn_id": rxn_id,
+                "reversible": reversible,
+                "substrates": substrates,
+                "products": products,
+                "gene_entries": gene_entries,
+            }
+        )
 
     # --- 5. If backbone mode, compute chain-connectivity sets --------------
     if backbone:
@@ -644,7 +632,10 @@ def _kgml_to_graph(
 
         if backbone:
             substrates, products = _filter_to_backbone(
-                substrates, products, produced, consumed,
+                substrates,
+                products,
+                produced,
+                consumed,
             )
 
         for substrate in substrates:

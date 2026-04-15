@@ -20,22 +20,20 @@ kegg_module_to_graph(module_id, organism)
 
 Joining reactions to genes
 --------------------------
-Organism-specific module entries (e.g. ``md:eco_M00018``) carry two
-parallel blocks that together pin down the reaction → gene mapping
-locally, with no extra REST calls:
+Two separate REST entries are used together:
 
-- ``DEFINITION`` is a space-separated logic expression of K-numbers,
-  one top-level token per reaction step, in the same order as the
-  REACTION block.  Parentheses group isoenzymes; ``+`` joins complex
-  components; ``-`` marks optional units.  We extract the set of
-  K-numbers per step and ignore the boolean structure.
-- ``GENE`` lists every organism gene present in the module along with
-  its ``[KO:Kxxxxx]`` annotation.
+- The **organism-specific** entry (e.g. ``md:eco_M00545``) supplies
+  the REACTION, COMPOUND, NAME, DEFINITION, CLASS, and GENE blocks.
+  Its ORTHOLOGY block does *not* carry ``[RN:...]`` tags.
 
-Pairing the i-th DEFINITION token with the i-th REACTION line gives,
-for each reaction, the KO set that catalyzes it; the GENE block then
-resolves each KO to one or more organism genes.  No ORTHOLOGY block
-or KEGG reaction entry is needed.
+- The **universal** module entry (e.g. ``md:M00545``) supplies the
+  ORTHOLOGY block, whose lines do carry ``[RN:Rxxxxx ...]`` tags and
+  are the authoritative KO → reaction mapping.
+
+Deriving KO sets from the universal ORTHOLOGY block instead of
+positional alignment with the DEFINITION tokens is the key fix for
+branching modules: a single DEFINITION token can expand to multiple
+parallel REACTION lines, which breaks any index-based pairing.
 
 Notes
 -----
@@ -51,12 +49,12 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from pprint import pprint
 from typing import Optional
 
 import networkx as nx
 
 from essential.kegg_pathways import _KEGG_BASE, _fetch
-
 
 # ---------------------------------------------------------------------------
 # Public functions
@@ -92,9 +90,6 @@ def list_kegg_modules(
         ``"eco_M00018"``), ``title``, and ``class`` (empty string when
         ``pathway_only=False``).
     """
-    # KEGG REST no longer supports ``list/module/{org}``; obtain the
-    # organism's modules via the ``link`` endpoint, then join titles
-    # from the universal ``list/module``.
     link_text = _fetch(f"{_KEGG_BASE}/link/{organism}/module", cache_dir)
     module_ids: set[str] = set()
     for line in link_text.strip().splitlines():
@@ -103,7 +98,7 @@ def list_kegg_modules(
             continue
         mid = parts[0]
         if mid.startswith("md:"):
-            mid = mid[len("md:"):]
+            mid = mid[len("md:") :]
         module_ids.add(mid)
 
     list_text = _fetch(f"{_KEGG_BASE}/list/module", cache_dir)
@@ -114,17 +109,19 @@ def list_kegg_modules(
             continue
         bare = parts[0]
         if bare.startswith("md:"):
-            bare = bare[len("md:"):]
+            bare = bare[len("md:") :]
         title_by_bare[bare] = parts[1]
 
     records: list[dict[str, str]] = []
     for mid in sorted(module_ids):
         bare = mid.split("_", 1)[1] if "_" in mid else mid
-        records.append({
-            "module_id": mid,
-            "title": title_by_bare.get(bare, ""),
-            "class": "",
-        })
+        records.append(
+            {
+                "module_id": mid,
+                "title": title_by_bare.get(bare, ""),
+                "class": "",
+            }
+        )
 
     if not pathway_only:
         return records
@@ -144,6 +141,8 @@ def kegg_module_to_graph(
     organism: str = "eco",
     *,
     cache_dir: Optional[Path] = Path.home() / ".cache" / "kegg",
+    print_info: bool = False,
+    tag_bidirectional: bool = False,
 ) -> nx.DiGraph:
     """
     Parse a KEGG module into a directed reaction graph.
@@ -160,6 +159,9 @@ def kegg_module_to_graph(
     cache_dir :
         Directory for caching KEGG REST responses.  Pass ``None`` to
         disable caching.
+    tag_bidirectional :
+        If True, reversible reactions will be emitted as two directed edges (substrate->product and product->substrate).
+        If False (default), emit only substrate->product edges.
 
     Returns
     -------
@@ -169,7 +171,7 @@ def kegg_module_to_graph(
 
         Edges are one per ``(substrate, product)`` pair of each reaction
         in the module's REACTION block.  Reversible reactions emit two
-        directed edges.  Edge attributes:
+        directed edges if tag_bidirectional=True.  Edge attributes:
 
         - ``reaction``  : R-number
         - ``kos``       : list of K-numbers catalyzing the reaction
@@ -187,21 +189,33 @@ def kegg_module_to_graph(
           parsed from the module title (``"..., X => Y"``); ``None``
           when the title carries no such suffix.
     """
-    pid = _normalize_module_id(module_id, organism)
-    flat = _fetch(f"{_KEGG_BASE}/get/md:{pid}", cache_dir)
+    org_pid = _normalize_module_id(module_id, organism)  # e.g. "eco_M00545"
+    bare_mid = _bare_module_id(org_pid)  # e.g. "M00545"
 
-    blocks = _parse_flat_blocks(flat)
-    name = blocks.get("NAME", "").strip()
-    definition = blocks.get("DEFINITION", "").strip()
-    cls = blocks.get("CLASS", "").strip()
+    # Organism-specific entry: REACTION, COMPOUND, GENE, NAME, CLASS, DEFINITION.
+    organism_flat = _fetch(f"{_KEGG_BASE}/get/md:{org_pid}", cache_dir)
+    organism_blocks = _parse_flat_blocks(organism_flat)
+    # from pprint import pprint
 
-    compounds = _parse_compound_block(blocks.get("COMPOUND", ""))
-    reaction_steps = _parse_reaction_block(blocks.get("REACTION", ""))
-    definition_steps = _parse_definition(definition)
-    ko_to_gene = _parse_gene_block(blocks.get("GENE", ""))
+    # Universal entry: ORTHOLOGY block carries [RN:...] tags that the
+    # organism-specific entry omits.  This is the only reliable source
+    # for KO → R-number mapping that is independent of module topology.
+    universal_flat = _fetch(f"{_KEGG_BASE}/get/md:{bare_mid}", cache_dir)
+    universal_blocks = _parse_flat_blocks(universal_flat)
+
+    name = organism_blocks.get("NAME", "").strip()
+    definition = organism_blocks.get("DEFINITION", "").strip()
+    cls = organism_blocks.get("CLASS", "").strip()
+
+    compounds = _parse_compound_block(organism_blocks.get("COMPOUND", ""))
+    reaction_steps = _parse_reaction_block(organism_blocks.get("REACTION", ""))
+    ko_to_gene = _parse_gene_block(organism_blocks.get("GENE", ""))
+
+    # rxn_to_kos from the universal ORTHOLOGY block — topology-independent.
+    rxn_to_kos: dict[str, list[str]] = _parse_orthology_block(universal_blocks.get("ORTHOLOGY", ""))
 
     g = nx.DiGraph()
-    g.graph["module_id"] = pid
+    g.graph["module_id"] = org_pid
     g.graph["name"] = name
     g.graph["definition"] = definition
     g.graph["class"] = cls
@@ -212,31 +226,35 @@ def kegg_module_to_graph(
     for cid, cname in compounds.items():
         g.add_node(cid, name=cname)
 
-    for step_idx, step in enumerate(reaction_steps):
-        kos = (
-            definition_steps[step_idx]
-            if step_idx < len(definition_steps)
-            else []
-        )
+    for step in reaction_steps:
+        # Union KOs across all R-numbers in this step (comma-listed
+        # alternatives share the same KO set in practice, but we union
+        # to be safe).
+        kos_seen: set[str] = set()
+        kos: list[str] = []
+        for rxn_id in step["rxn_ids"]:
+            for ko in rxn_to_kos.get(rxn_id, []):
+                if ko not in kos_seen:
+                    kos_seen.add(ko)
+                    kos.append(ko)
 
-        gene_pairs: list[tuple[str, str]] = []
+        unique_gene_mappings: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = set()
         for ko in kos:
             for sym, gid in ko_to_gene.get(ko, []):
                 if (sym, gid) not in seen:
                     seen.add((sym, gid))
-                    gene_pairs.append((sym, gid))
-
-        genes = [p[0] for p in gene_pairs]
-        gene_ids = [p[1] for p in gene_pairs]
+                    unique_gene_mappings.append((sym, gid))
+        genes = [p[0] for p in unique_gene_mappings]
+        gene_ids = [p[1] for p in unique_gene_mappings]
 
         for rxn_id in step["rxn_ids"]:
             edge_data = {
                 "reaction": rxn_id,
-                "kos": list(kos),
+                "kos": kos,
                 "genes": genes,
                 "gene_ids": gene_ids,
-                "gene": genes[0] if genes else None,
+                "gene": genes[0] if genes else None,  # we only extract the first gene mapping
                 "gene_id": gene_ids[0] if gene_ids else None,
                 "reversible": step["reversible"],
             }
@@ -247,8 +265,15 @@ def kegg_module_to_graph(
                     if p not in g:
                         g.add_node(p, name=compounds.get(p, p))
                     g.add_edge(s, p, **edge_data)
-                    if step["reversible"]:
+                    if tag_bidirectional and step["reversible"]:
                         g.add_edge(p, s, **edge_data)
+
+    if print_info:
+        pprint(organism_blocks)
+        pprint(ko_to_gene)
+        print(f"{module_id}:", g.graph["name"])
+        print("source ->", g.graph["source"], "|| target ->", g.graph["target"])
+        print(f"nodes={g.number_of_nodes()} edges={g.number_of_edges()}")
 
     return g
 
@@ -262,10 +287,22 @@ def _normalize_module_id(module_id: str, organism: str) -> str:
     """Return an organism-prefixed module ID like ``"eco_M00018"``."""
     pid = module_id.strip()
     if pid.startswith("md:"):
-        pid = pid[len("md:"):]
+        pid = pid[len("md:") :]
     if re.fullmatch(r"M\d{5}", pid):
         pid = f"{organism}_{pid}"
     return pid
+
+
+def _bare_module_id(org_pid: str) -> str:
+    """
+    Strip the organism prefix from an organism-prefixed module ID.
+
+    ``"eco_M00018"`` → ``"M00018"``
+    ``"M00018"``     → ``"M00018"``
+    """
+    if "_" in org_pid:
+        return org_pid.split("_", 1)[1]
+    return org_pid
 
 
 # ---------------------------------------------------------------------------
@@ -317,9 +354,7 @@ def _parse_compound_block(text: str) -> dict[str, str]:
 
 def _parse_reaction_block(text: str) -> list[dict]:
     """
-    Parse the REACTION block into one entry per line, preserving the
-    in-block order so each step can be paired index-wise with the
-    corresponding token of the DEFINITION expression.
+    Parse the REACTION block into one entry per line.
 
     Lines have the form::
 
@@ -327,8 +362,8 @@ def _parse_reaction_block(text: str) -> list[dict]:
         R01773,R01775  C00441 <=> C00263
 
     Comma-separated R-numbers on a single line denote alternative
-    reaction IDs for the *same* step (catalyzed by the same KOs); they
-    share one entry's ``rxn_ids`` list.
+    reaction IDs for the *same* step; they share one entry's
+    ``rxn_ids`` list.
 
     Returns dicts with keys ``rxn_ids``, ``substrates``, ``products``,
     ``reversible``.
@@ -353,48 +388,65 @@ def _parse_reaction_block(text: str) -> list[dict]:
         else:
             continue
 
-        out.append({
-            "rxn_ids": rxn_ids,
-            "substrates": re.findall(r"C\d{5}", lhs),
-            "products": re.findall(r"C\d{5}", rhs),
-            "reversible": reversible,
-        })
+        out.append(
+            {
+                "rxn_ids": rxn_ids,
+                "substrates": re.findall(r"C\d{5}", lhs),
+                "products": re.findall(r"C\d{5}", rhs),
+                "reversible": reversible,
+            }
+        )
     return out
 
 
-def _parse_definition(text: str) -> list[list[str]]:
+def _parse_orthology_block(text: str) -> dict[str, list[str]]:
     """
-    Split a module DEFINITION expression into one KO list per
-    top-level token.
+    Parse a **universal** module ORTHOLOGY block into
+    ``{R-number: [K-numbers]}``.
 
-    Top-level tokens are space-separated, but spaces inside parentheses
-    do not split.  Each token may be a single K-number, a parenthesized
-    comma-separated alternation of isoenzymes, or a ``+``/``-`` joined
-    complex expression — we ignore the boolean structure and simply
-    extract every K-number in the token.
+    Lines in the universal module entry have the form::
 
-    Token order matches the REACTION block line order.
+        K05708  hcaE; 3-phenylpropanoate ... [RN:R06783] [EC:1.14.12.19]
+        K00626  acetyl-CoA acyltransferase ... [RN:R00238 R00927]
+
+    Multi-subunit enzyme complexes join K-numbers with ``+`` in the
+    first whitespace-delimited token::
+
+        K05708+K05709+K05710+K00529  3-phenylpropionate dioxygenase ... [RN:R06783]
+
+    All K-numbers from such a complex are mapped to the same reaction(s).
+
+    The ``[RN:...]`` tag is present only in universal module entries
+    (e.g. ``md:M00545``), not in organism-specific ones
+    (e.g. ``md:eco_M00545``).  Always call this on the universal flat
+    file.
+
+    Returns
+    -------
+    dict
+        ``{R-number: [K-number, ...]}`` ordered by first appearance of
+        each KO in the block.
     """
-    text = text.strip()
-    tokens: list[str] = []
-    cur: list[str] = []
-    depth = 0
-    for ch in text:
-        if ch == "(":
-            depth += 1
-            cur.append(ch)
-        elif ch == ")":
-            depth -= 1
-            cur.append(ch)
-        elif ch.isspace() and depth == 0:
-            if cur:
-                tokens.append("".join(cur))
-                cur = []
-        else:
-            cur.append(ch)
-    if cur:
-        tokens.append("".join(cur))
-    return [re.findall(r"K\d{5}", tok) for tok in tokens]
+    rxn_to_kos: dict[str, list[str]] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # The KO field is the first whitespace-delimited token.
+        # Enzyme complexes use '+'-joined K-numbers (e.g. K05708+K05709+...).
+        first_token = line.split()[0]
+        kos = re.findall(r"K\d{5}", first_token)
+        if not kos:
+            continue
+        rn_match = re.search(r"\[RN:([^\]]+)\]", line)
+        if not rn_match:
+            continue
+        for rxn_id in re.findall(r"R\d{5}", rn_match.group(1)):
+            lst = rxn_to_kos.setdefault(rxn_id, [])
+            for ko in kos:
+                if ko not in lst:
+                    lst.append(ko)
+    return rxn_to_kos
 
 
 def _parse_gene_block(text: str) -> dict[str, list[tuple[str, str]]]:
@@ -444,3 +496,52 @@ def _parse_endpoints_from_name(name: str) -> tuple[Optional[str], Optional[str]]
     if len(parts) < 2:
         return None, None
     return parts[0], parts[-1]
+
+
+def metabolic_to_operational_graph(
+    metabolic_graph: nx.DiGraph,
+) -> nx.DiGraph:
+    """
+    Project a metabolic DiGraph (metabolite nodes, gene-annotated edges)
+    onto a gene-level operational graph suitable for PathwayDiscontinuity.
+
+    For each metabolite node M, genes on edges producing M (M is target)
+    are connected to genes on edges consuming M (M is source).  A gene
+    appearing on multiple metabolic edges (e.g. waaA in a convergent
+    pathway) collapses to a single node.  A gene catalyzing consecutive
+    steps (A->B->C) produces no self-loop; it connects to its upstream
+    and downstream neighbors only.
+
+    Edge attributes on the operational graph:
+        metabolites : set of intermediate metabolite IDs linking the pair
+    """
+    op = nx.DiGraph()
+
+    for metabolite in metabolic_graph.nodes():
+        # genes that produce this metabolite (on in-edges)
+        producers: set[str] = set()
+        for u, _, data in metabolic_graph.in_edges(metabolite, data=True):
+            for gene in data.get("genes", []):
+                if gene:
+                    producers.add(gene)
+
+        # genes that consume this metabolite (on out-edges)
+        consumers: set[str] = set()
+        for _, v, data in metabolic_graph.out_edges(metabolite, data=True):
+            for gene in data.get("genes", []):
+                if gene:
+                    consumers.add(gene)
+
+        for prod in producers:
+            for cons in consumers:
+                if prod == cons:
+                    continue
+                if op.has_edge(prod, cons):
+                    op[prod][cons]["metabolites"].add(metabolite)
+                else:
+                    op.add_edge(prod, cons, metabolites={metabolite})
+
+    # carry over module-level metadata
+    op.graph.update(metabolic_graph.graph)
+
+    return op
