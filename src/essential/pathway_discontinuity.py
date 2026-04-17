@@ -8,6 +8,7 @@ is computed in ``fit`` / ``compute_graph_equivalences`` once scores exist;
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Literal, Mapping
 
 import networkx as nx
@@ -109,6 +110,15 @@ class PathwayDiscontinuity:
         obs = self.adata.obs[self.perturbation_obs_key]
         X = self.adata.obsm[self.representation_obsm_key][obs.values == g1].astype(np.float32)
         Y = self.adata.obsm[self.representation_obsm_key][obs.values == g2].astype(np.float32)
+        if X.shape[0] == 0 or Y.shape[0] == 0:
+            missing = g1 if X.shape[0] == 0 else g2
+            warnings.warn(
+                f"Gene '{missing}' has no observations in "
+                f"adata.obs['{self.perturbation_obs_key}']. Returning NaN.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return float("nan")
         if mode == "mmd_stat":
             return self._mmd.compute_mmd(X, Y)
         elif mode == "mmd_pvalue":
@@ -160,16 +170,25 @@ class PathwayDiscontinuity:
 
         edge_dissimilarity: dict[frozenset[str], float] = {}
         records = []
+        unscored_genes: set[str] = set()
+        obs_values = self.adata.obs[self.perturbation_obs_key].values
 
         for pair in adjacent_pairs:
             gene1, gene2 = tuple(pair)
             score = self.compute_pair_score(gene1, gene2, **kwargs)
             edge_dissimilarity[pair] = score
             records.append({"g1": gene1, "g2": gene2, "score": score})
+            if np.isnan(score):
+                for gene in (gene1, gene2):
+                    if (obs_values == gene).sum() == 0:
+                        unscored_genes.add(gene)
 
         classes = self.compute_graph_equivalences(edge_dissimilarity, threshold=threshold)
+        n_equivalences = len(classes) - len(unscored_genes)
         return EquivalenceResults(
             edge_equivalence=classes,
             gene_pair_scores=pd.DataFrame(records, columns=["g1", "g2", "score"]),
             metabolic_graph=g,
+            unscored_genes=unscored_genes,
+            n_equivalences=n_equivalences,
         )

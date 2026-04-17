@@ -1,0 +1,974 @@
+[
+  {
+    "module_id":"eco_M00001",
+    "title":"Glycolysis (Embden-Meyerhof pathway), glucose => pyruvate",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":7.0,
+    "module_has_surprises":true,
+    "genes":"eno, fbaA, gapA, glk, gpmA, pfkA, pgi, pgk, pykF, tpiA",
+    "n_genes":10.0
+  },
+  {
+    "module_id":"eco_M00002",
+    "title":"Glycolysis, core module involving three-carbon compounds",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":7.0,
+    "module_has_surprises":true,
+    "genes":"eno, gapA, gpmA, pgk, pykF, tpiA",
+    "n_genes":6.0
+  },
+  {
+    "module_id":"eco_M00003",
+    "title":"Gluconeogenesis, oxaloacetate => fructose-6P",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":7.0,
+    "module_has_surprises":true,
+    "genes":"eno, fbaA, fbp, gapA, gpmA, pck, pgk, tpiA",
+    "n_genes":8.0
+  },
+  {
+    "module_id":"eco_M00004",
+    "title":"Pentose phosphate pathway (Pentose phosphate cycle)",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"gnd, pgi, pgl, rpe, rpiA, talB, tktB, zwf",
+    "n_genes":8.0
+  },
+  {
+    "module_id":"eco_M00005",
+    "title":"PRPP biosynthesis, ribose-5P => PRPP",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"prs",
+    "n_genes":1.0
+  },
+  {
+    "module_id":"eco_M00006",
+    "title":"Pentose phosphate pathway, oxidative phase, glucose-6P => ribulose-5P",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"gnd, pgl, zwf",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00007",
+    "title":"Pentose phosphate pathway, non-oxidative phase, fructose-6P => ribose-5P",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"rpe, rpiA, talB, tktB",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00008",
+    "title":"Entner-Doudoroff pathway, glucose-6P => glyceraldehyde-3P + pyruvate",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"eda, edd, pgl, zwf",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00009",
+    "title":"Citrate cycle (TCA cycle, Krebs cycle)",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"fumA, gltA, mdh, sdhA, sucA, sucD",
+    "n_genes":6.0
+  },
+  {
+    "module_id":"eco_M00010",
+    "title":"Citrate cycle, first carbon oxidation, oxaloacetate => 2-oxoglutarate",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"gltA",
+    "n_genes":1.0
+  },
+  {
+    "module_id":"eco_M00011",
+    "title":"Citrate cycle, second carbon oxidation, 2-oxoglutarate => oxaloacetate",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"fumA, mdh, sdhA, sucA, sucD",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00012",
+    "title":"Glyoxylate cycle",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"aceA, acnA, gltA, mdh",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00015",
+    "title":"Proline biosynthesis, glutamate => proline",
+    "class":"Pathway modules; Amino acid metabolism; Arginine and proline metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"proA, proB, proC",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00016",
+    "title":"Lysine biosynthesis, succinyl-DAP pathway, aspartate => lysine",
+    "class":"Pathway modules; Amino acid metabolism; Lysine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"argD, asd, dapA, dapB, dapD, dapE, dapF, lysA, lysC",
+    "n_genes":9.0
+  },
+  {
+    "module_id":"eco_M00017",
+    "title":"Methionine biosynthesis, aspartate => homoserine => methionine",
+    "class":"Pathway modules; Amino acid metabolism; Cysteine and methionine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"asd, lysC, metA, metB, metC, metH, thrA",
+    "n_genes":7.0
+  },
+  {
+    "module_id":"eco_M00018",
+    "title":"Threonine biosynthesis, aspartate => homoserine => threonine",
+    "class":"Pathway modules; Amino acid metabolism; Serine and threonine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"asd, lysC, thrA, thrB, thrC",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00019",
+    "title":"Valine\/isoleucine biosynthesis, pyruvate => valine \/ 2-oxobutanoate => isoleucine",
+    "class":"Pathway modules; Amino acid metabolism; Branched-chain amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"ilvC, ilvD, ilvE, ilvI",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00020",
+    "title":"Serine biosynthesis, glycerate-3P => serine",
+    "class":"Pathway modules; Amino acid metabolism; Serine and threonine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"serA, serB, serC",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00021",
+    "title":"Cysteine biosynthesis, serine => cysteine",
+    "class":"Pathway modules; Amino acid metabolism; Cysteine and methionine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"cysE, cysK",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00022",
+    "title":"Shikimate pathway, phosphoenolpyruvate + erythrose-4P => chorismate",
+    "class":"Pathway modules; Amino acid metabolism; Aromatic amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"aroA, aroB, aroC, aroD, aroE, aroG, aroL",
+    "n_genes":7.0
+  },
+  {
+    "module_id":"eco_M00023",
+    "title":"Tryptophan biosynthesis, chorismate => tryptophan",
+    "class":"Pathway modules; Amino acid metabolism; Aromatic amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"trpA, trpC, trpD, trpE",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00024",
+    "title":"Phenylalanine biosynthesis, chorismate => phenylpyruvate => phenylalanine",
+    "class":"Pathway modules; Amino acid metabolism; Aromatic amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"pheA, tyrA, tyrB",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00025",
+    "title":"Tyrosine biosynthesis, chorismate => HPP => tyrosine",
+    "class":"Pathway modules; Amino acid metabolism; Aromatic amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"tyrA, tyrB",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00026",
+    "title":"Histidine biosynthesis, PRPP => histidine",
+    "class":"Pathway modules; Amino acid metabolism; Histidine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"hisA, hisB, hisC, hisD, hisF, hisG, hisI",
+    "n_genes":7.0
+  },
+  {
+    "module_id":"eco_M00027",
+    "title":"GABA (gamma-Aminobutyrate) shunt",
+    "class":"Pathway modules; Amino acid metabolism; Other amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"gabD, gabT, gadB",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00028",
+    "title":"Ornithine biosynthesis, glutamate => ornithine",
+    "class":"Pathway modules; Amino acid metabolism; Arginine and proline metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"argA, argB, argC, argD, argE",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00048",
+    "title":"De novo purine biosynthesis, PRPP + glutamine => IMP",
+    "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"purB, purC, purD, purE, purF, purH, purK, purL, purM, purN",
+    "n_genes":10.0
+  },
+  {
+    "module_id":"eco_M00049",
+    "title":"Adenine ribonucleotide biosynthesis, IMP => ADP,ATP",
+    "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"adk, ndk, purA, purB",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00050",
+    "title":"Guanine ribonucleotide biosynthesis, IMP => GDP,GTP",
+    "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"gmk, guaA, guaB, ndk",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00051",
+    "title":"De novo pyrimidine biosynthesis, glutamine (+ PRPP) => UMP",
+    "class":"Pathway modules; Nucleotide metabolism; Pyrimidine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"carB, pyrB, pyrC, pyrD, pyrE, pyrF",
+    "n_genes":6.0
+  },
+  {
+    "module_id":"eco_M00052",
+    "title":"Pyrimidine ribonucleotide biosynthesis, UMP => UDP\/UTP,CDP\/CTP",
+    "class":"Pathway modules; Nucleotide metabolism; Pyrimidine metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"ndk, pyrG, pyrH",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00053",
+    "title":"Deoxyribonucleotide biosynthesis, ADP\/GDP\/CDP\/UDP => dATP\/dGTP\/dCTP\/dUTP",
+    "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"ndk, nrdA",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00060",
+    "title":"KDO2-lipid A biosynthesis, Raetz pathway, LpxL-LpxM type",
+    "class":"Pathway modules; Glycan metabolism; Lipopolysaccharide metabolism",
+    "n_equivalences":4.0,
+    "module_has_surprises":true,
+    "genes":"lpxA, lpxB, lpxC, lpxD, lpxH, lpxK, lpxL, lpxM, waaA",
+    "n_genes":9.0
+  },
+  {
+    "module_id":"eco_M00061",
+    "title":"D-Glucuronate degradation, D-glucuronate => pyruvate + D-glyceraldehyde-3P",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"eda, kdgK, uxaC, uxuA, ydfI",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00063",
+    "title":"CMP-KDO biosynthesis, ribulose-5P => CMP-KDO",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"kdsA, kdsB, kdsC, kdsD",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00064",
+    "title":"ADP-LDmanHep biosynthesis, sedoheptulose-7P => ADP-LDmanHep",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"gmhA, gmhB, hldE, rfaD",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00082",
+    "title":"Fatty acid biosynthesis, initiation",
+    "class":"Pathway modules; Lipid metabolism; Fatty acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"accB, fabD, fabH",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00083",
+    "title":"Fatty acid biosynthesis, elongation",
+    "class":"Pathway modules; Lipid metabolism; Fatty acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"fabB, fabG, fabI, fabZ",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00086",
+    "title":"beta-Oxidation, acyl-CoA synthesis",
+    "class":"Pathway modules; Lipid metabolism; Fatty acid metabolism",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"fadD",
+    "n_genes":1.0
+  },
+  {
+    "module_id":"eco_M00087",
+    "title":"beta-Oxidation",
+    "class":"Pathway modules; Lipid metabolism; Fatty acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"fadB, fadE, fadI, paaF",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00093",
+    "title":"Phosphatidylethanolamine (PE) biosynthesis, PA => PS => PE",
+    "class":"Pathway modules; Lipid metabolism; Lipid metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"cdsA, psd, pssA",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00096",
+    "title":"C5 isoprenoid biosynthesis, non-mevalonate pathway",
+    "class":"Pathway modules; Biosynthesis of terpenoids and polyketides; Terpenoid backbone biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"dxr, dxs, idi, ispD, ispE, ispF, ispG, ispH",
+    "n_genes":8.0
+  },
+  {
+    "module_id":"eco_M00115",
+    "title":"NAD biosynthesis, aspartate => quinolinate => NAD",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"nadA, nadB, nadC, nadD, nadE",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00116",
+    "title":"Menaquinone biosynthesis, chorismate (+ polyprenyl-PP) => menaquinol",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"menA, menB, menC, menD, menE, menF, menH, menI, ubiE",
+    "n_genes":9.0
+  },
+  {
+    "module_id":"eco_M00117",
+    "title":"Ubiquinone biosynthesis, prokaryotes, chorismate (+ polyprenyl-PP) => ubiquinol",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"ubiA, ubiC, ubiD, ubiE, ubiF, ubiG, ubiH, ubiI",
+    "n_genes":8.0
+  },
+  {
+    "module_id":"eco_M00118",
+    "title":"Glutathione biosynthesis, glutamate => glutathione",
+    "class":"Pathway modules; Amino acid metabolism; Other amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"gshA, gshB",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00119",
+    "title":"Pantothenate biosynthesis, valine\/L-aspartate => pantothenate",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"ilvE, panB, panC, panD, panE",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00120",
+    "title":"Coenzyme A biosynthesis, pantothenate => CoA",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"coaA, coaD, coaE, dfp",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00121",
+    "title":"Heme biosynthesis, plants and bacteria, glutamate => heme",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":4.0,
+    "module_has_surprises":true,
+    "genes":"gltX, hemA, hemB, hemC, hemD, hemE, hemF, hemG, hemH, hemL",
+    "n_genes":10.0
+  },
+  {
+    "module_id":"eco_M00123",
+    "title":"Biotin biosynthesis, pimeloyl-ACP\/CoA => biotin",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"bioB, bioD, bioF",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00124",
+    "title":"Pyridoxal phosphate biosynthesis, erythrose-4P => pyridoxal-P",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"epd, pdxA, pdxB, pdxH, pdxJ, serC",
+    "n_genes":6.0
+  },
+  {
+    "module_id":"eco_M00125",
+    "title":"Riboflavin biosynthesis, plants and bacteria, GTP => riboflavin\/FMN\/FAD",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":5.0,
+    "module_has_surprises":true,
+    "genes":"ribA, ribB, ribC, ribD, ribE, ribF, ybjI",
+    "n_genes":7.0
+  },
+  {
+    "module_id":"eco_M00126",
+    "title":"Tetrahydrofolate biosynthesis, GTP => THF",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"folA, folB, folC, folE, folK, folP, nudB, phoA",
+    "n_genes":8.0
+  },
+  {
+    "module_id":"eco_M00127",
+    "title":"Thiamine biosynthesis, prokaryotes, AIR (+ DXP\/tyrosine) => TMP\/TPP",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"thiC, thiD, thiE, thiF, thiG, thiH, thiI, thiL",
+    "n_genes":8.0
+  },
+  {
+    "module_id":"eco_M00133",
+    "title":"Polyamine biosynthesis, arginine => agmatine => putrescine => spermidine",
+    "class":"Pathway modules; Amino acid metabolism; Polyamine biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"speA, speB, speD, speE",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00136",
+    "title":"GABA biosynthesis, prokaryotes, putrescine => GABA",
+    "class":"Pathway modules; Amino acid metabolism; Polyamine biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"puuA, puuB, puuC, puuD",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00144",
+    "title":"NADH:quinone oxidoreductase, prokaryotes",
+    "class":"Pathway modules; Energy metabolism; ATP synthesis",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"",
+    "n_genes":0.0
+  },
+  {
+    "module_id":"eco_M00149",
+    "title":"Succinate dehydrogenase, prokaryotes",
+    "class":"Pathway modules; Energy metabolism; ATP synthesis",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"",
+    "n_genes":0.0
+  },
+  {
+    "module_id":"eco_M00150",
+    "title":"Fumarate reductase, prokaryotes",
+    "class":"Pathway modules; Energy metabolism; ATP synthesis",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"",
+    "n_genes":0.0
+  },
+  {
+    "module_id":"eco_M00153",
+    "title":"Cytochrome bd ubiquinol oxidase",
+    "class":"Pathway modules; Energy metabolism; ATP synthesis",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"",
+    "n_genes":0.0
+  },
+  {
+    "module_id":"eco_M00157",
+    "title":"F-type ATPase, prokaryotes and chloroplasts",
+    "class":"Pathway modules; Energy metabolism; ATP synthesis",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"",
+    "n_genes":0.0
+  },
+  {
+    "module_id":"eco_M00168",
+    "title":"CAM (Crassulacean acid metabolism), dark",
+    "class":"Pathway modules; Energy metabolism; Carbon fixation",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"mdh, ppc",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00176",
+    "title":"Assimilatory sulfate reduction, sulfate => H2S",
+    "class":"Pathway modules; Energy metabolism; Sulfur metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"cysC, cysD, cysH, cysJ",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00307",
+    "title":"Pyruvate oxidation, pyruvate => acetyl-CoA",
+    "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"aceE",
+    "n_genes":1.0
+  },
+  {
+    "module_id":"eco_M00364",
+    "title":"C10-C20 isoprenoid biosynthesis, bacteria",
+    "class":"Pathway modules; Biosynthesis of terpenoids and polyketides; Terpenoid backbone biosynthesis",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"idi, ispA",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00417",
+    "title":"Cytochrome o ubiquinol oxidase",
+    "class":"Pathway modules; Energy metabolism; ATP synthesis",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"",
+    "n_genes":0.0
+  },
+  {
+    "module_id":"eco_M00432",
+    "title":"Leucine biosynthesis, 2-oxoisovalerate => 2-oxoisocaproate",
+    "class":"Pathway modules; Amino acid metabolism; Branched-chain amino acid metabolism",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"leuA",
+    "n_genes":1.0
+  },
+  {
+    "module_id":"eco_M00530",
+    "title":"Dissimilatory nitrate reduction, nitrate => ammonia",
+    "class":"Pathway modules; Energy metabolism; Nitrogen metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"narG, nirB",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00545",
+    "title":"Trans-cinnamate degradation, trans-cinnamate => acetyl-CoA",
+    "class":"Pathway modules; Xenobiotics biodegradation; Aromatics degradation",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"hcaB, hcaE, mhpA, mhpB, mhpC, mhpD, mhpE, mhpF",
+    "n_genes":8.0
+  },
+  {
+    "module_id":"eco_M00549",
+    "title":"UDP-Glc biosynthesis, Glc => UDP-Glc",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"galU, glk, pgm",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00550",
+    "title":"Ascorbate degradation, ascorbate => D-xylulose-5P",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"araD, sgbH, sgbU, ulaC, ulaG",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00552",
+    "title":"D-galactonate degradation, De Ley-Doudoroff pathway, D-galactonate => glycerate-3P",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"dgoA, dgoD, dgoK, gapA, pgk",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00554",
+    "title":"UDP-Gal biosynthesis, Gal => UDP-Gal",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"galK, galT",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00555",
+    "title":"Betaine biosynthesis, choline => betaine",
+    "class":"Pathway modules; Amino acid metabolism; Serine and threonine metabolism",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"betA",
+    "n_genes":1.0
+  },
+  {
+    "module_id":"eco_M00570",
+    "title":"Isoleucine biosynthesis, threonine => 2-oxobutanoate => isoleucine",
+    "class":"Pathway modules; Amino acid metabolism; Branched-chain amino acid metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"ilvC, ilvD, ilvE, ilvI, tdcB",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00572",
+    "title":"Pimeloyl-ACP biosynthesis, BioC-BioH pathway, malonyl-ACP => pimeloyl-ACP",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"bioC, bioH, fabB, fabG, fabI, fabZ",
+    "n_genes":6.0
+  },
+  {
+    "module_id":"eco_M00579",
+    "title":"Phosphate acetyltransferase-acetate kinase pathway, acetyl-CoA => acetate",
+    "class":"Pathway modules; Energy metabolism; Carbon fixation",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"ackA, pta",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00621",
+    "title":"Glycine cleavage system",
+    "class":"Pathway modules; Amino acid metabolism; Serine and threonine metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"gcvP, gcvT, lpd",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00631",
+    "title":"D-Galacturonate degradation (bacteria), D-galacturonate => pyruvate + D-glyceraldehyde-3P",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"eda, kdgK, uxaA, uxaB, uxaC",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00632",
+    "title":"Galactose degradation, Leloir pathway, galactose => alpha-D-glucose-1P",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"galE, galK, galM, galT",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00761",
+    "title":"Und-P-alpha-L-Ara4N biosynthesis, UDP-Glc => UDP-L-Ara4FN => Und-P-alpha-L-Ara4N",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"arnA, arnB, arnC, arnD, ugd",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00793",
+    "title":"dTDP-L-Rha biosynthesis, Glc-1P => dTDP-L-Rha",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"rfbA, rfbB, rfbC, rfbD",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00844",
+    "title":"Arginine biosynthesis, ornithine => arginine",
+    "class":"Pathway modules; Amino acid metabolism; Arginine and proline metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"argF, argG, argH",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00846",
+    "title":"Siroheme biosynthesis, glutamyl-tRNA => siroheme",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"cysG, hemA, hemB, hemC, hemD, hemL",
+    "n_genes":6.0
+  },
+  {
+    "module_id":"eco_M00854",
+    "title":"Glycogen biosynthesis, glucose-1P => glycogen\/starch",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"galU, glgA, glgB, glgC",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00855",
+    "title":"Glycogen degradation, glycogen => glucose-6P",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"malP, pgm",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00878",
+    "title":"Phenylacetate degradation, phenylaxetate => acetyl-CoA\/succinyl-CoA",
+    "class":"Pathway modules; Xenobiotics biodegradation; Aromatics degradation",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"paaA, paaF, paaG, paaH, paaJ, paaK, paaZ",
+    "n_genes":7.0
+  },
+  {
+    "module_id":"eco_M00879",
+    "title":"Arginine succinyltransferase pathway, arginine => glutamate",
+    "class":"Pathway modules; Amino acid metabolism; Arginine and proline metabolism",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"astA, astB, astC, astD, astE",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00880",
+    "title":"Molybdenum cofactor biosynthesis, GTP => molybdenum cofactor",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"moaA, moaC, moaE, moeA, mog",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00881",
+    "title":"Lipoic acid biosynthesis, plants and bacteria, octanoyl-ACP => dihydrolipoyl-E2\/H",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"lipA, lipB",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M00899",
+    "title":"Thiamine salvage pathway, HMP\/HET => TMP",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"thiD, thiE, thiM",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00909",
+    "title":"UDP-GlcNAc biosynthesis, prokaryotes, Fru-6P => UDP-GlcNAc",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"glmM, glmS, glmU",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M00938",
+    "title":"Pyrimidine deoxyribonucleotide biosynthesis, UDP => dTTP",
+    "class":"Pathway modules; Nucleotide metabolism; Pyrimidine metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"dut, ndk, nrdA, thyA, tmk",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00939",
+    "title":"Pyrimidine degradation, uracil => 3-hydroxypropanoate",
+    "class":"Pathway modules; Nucleotide metabolism; Pyrimidine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"rutA, rutB, rutC, rutD, rutE",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00956",
+    "title":"Lysine degradation, bacteria, L-lysine => succinate",
+    "class":"Pathway modules; Amino acid metabolism; Lysine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"gabD, gabT, glaH, ldcC, lhgD, patA, patD",
+    "n_genes":7.0
+  },
+  {
+    "module_id":"eco_M00958",
+    "title":"Adenine ribonucleotide degradation, AMP => Urate",
+    "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"add, umpG, xapA, xdhA",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00959",
+    "title":"Guanine ribonucleotide degradation, GMP => Urate",
+    "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"guaD, ushA, xapA, xdhA",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M00970",
+    "title":"Proline degradation, proline => glutamate",
+    "class":"Pathway modules; Amino acid metabolism; Arginine and proline metabolism",
+    "n_equivalences":0.0,
+    "module_has_surprises":false,
+    "genes":"putA",
+    "n_genes":1.0
+  },
+  {
+    "module_id":"eco_M00982",
+    "title":"Methylcitrate cycle",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"acnB, fumA, mdh, prpB, prpC, prpD, sdhA",
+    "n_genes":7.0
+  },
+  {
+    "module_id":"eco_M00988",
+    "title":"PreQ1 biosynthesis, GTP => 7-Aminomethyl-7-deazaguanine",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"folE, queC, queD, queE, queF",
+    "n_genes":5.0
+  },
+  {
+    "module_id":"eco_M00989",
+    "title":"Ubiquinone biosynthesis, O2-independent, prokaryotes, chorismate (+ polyprenyl-PP) => ubiquinol",
+    "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"ubiA, ubiC, ubiD, ubiE, ubiG, ubiU",
+    "n_genes":6.0
+  },
+  {
+    "module_id":"eco_M00995",
+    "title":"UDP-MurNAc biosynthesis, Fru-6P => UDP-MurNAc",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"glmM, glmS, glmU, murA",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M01000",
+    "title":"GDP-Man biosynthesis, Fru-6P => GDP-Man",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"cpsB, cpsG, manA",
+    "n_genes":3.0
+  },
+  {
+    "module_id":"eco_M01004",
+    "title":"UDP-Galf biosynthesis, UDP-Glc => UDP-Galf",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"galE, glf",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M01014",
+    "title":"UDP-ManNAcA biosynthesis, UDP-GlcNAc => UDP-ManNAcA",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"wecB, wecC",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M01016",
+    "title":"GDP-L-Fuc biosynthesis, GDP-Man => GDP-L-Fuc",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"fcl, gmd",
+    "n_genes":2.0
+  },
+  {
+    "module_id":"eco_M01025",
+    "title":"dTDP-D-Fuc4NAc biosynthesis, Glc-1P => dTDP-D-Fuc4NAc",
+    "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
+    "n_equivalences":2.0,
+    "module_has_surprises":true,
+    "genes":"rfbA, rfbB, rffC, wecE",
+    "n_genes":4.0
+  },
+  {
+    "module_id":"eco_M01049",
+    "title":"Sulfoquinovose degradation, sulfoglycolytic Embden-Meyerhof pathway, beta-sulfoquinovose => (S)-DHPS",
+    "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
+    "n_equivalences":1.0,
+    "module_has_surprises":false,
+    "genes":"yihS, yihT, yihU, yihV",
+    "n_genes":4.0
+  }
+]

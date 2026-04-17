@@ -34,6 +34,8 @@ class EquivalenceResults:
     edge_equivalence: dict[int, list[str]]
     gene_pair_scores: pd.DataFrame = field(default_factory=pd.DataFrame)
     metabolic_graph: Optional[nx.Graph | nx.DiGraph] = field(default=None, repr=False)
+    unscored_genes: set[str] = field(default_factory=set, repr=False)
+    n_equivalences: int = field(default=0, repr=False)
 
     @property
     def gene_to_class_id(self) -> dict[str, int]:
