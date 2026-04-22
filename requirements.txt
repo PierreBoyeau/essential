@@ -29,6 +29,8 @@ google-genai
 ollama
 pre-commit==4.5.1
 nbstripout==0.9.1
+flax
+optax
 # cudf-cu12==26.2.* 
 # dask-cudf-cu12==26.2.* 
 # cuml-cu12==26.2.* 
