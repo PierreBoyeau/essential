@@ -5,8 +5,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":7.0,
     "module_has_surprises":true,
-    "genes":"eno, fbaA, gapA, glk, gpmA, pfkA, pgi, pgk, pykF, tpiA",
-    "n_genes":10.0
+    "genes":"eno, fbaA, fbaB, gapA, glk, gpmA, gpmM, pfkA, pfkB, pgi, pgk, pykA, pykF, tpiA, ytjC",
+    "n_genes":15.0
   },
   {
     "module_id":"eco_M00002",
@@ -14,8 +14,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":7.0,
     "module_has_surprises":true,
-    "genes":"eno, gapA, gpmA, pgk, pykF, tpiA",
-    "n_genes":6.0
+    "genes":"eno, gapA, gpmA, gpmM, pgk, pykA, pykF, tpiA, ytjC",
+    "n_genes":9.0
   },
   {
     "module_id":"eco_M00003",
@@ -23,8 +23,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":7.0,
     "module_has_surprises":true,
-    "genes":"eno, fbaA, fbp, gapA, gpmA, pck, pgk, tpiA",
-    "n_genes":8.0
+    "genes":"eno, fbaA, fbaB, fbp, gapA, glpX, gpmA, gpmM, pck, pgk, tpiA, yggF, ytjC",
+    "n_genes":13.0
   },
   {
     "module_id":"eco_M00004",
@@ -32,8 +32,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"gnd, pgi, pgl, rpe, rpiA, talB, tktB, zwf",
-    "n_genes":8.0
+    "genes":"gnd, pgi, pgl, rpe, rpiA, rpiB, talA, talB, tktA, tktB, zwf",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00005",
@@ -59,8 +59,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"rpe, rpiA, talB, tktB",
-    "n_genes":4.0
+    "genes":"rpe, rpiA, rpiB, talA, talB, tktA, tktB",
+    "n_genes":7.0
   },
   {
     "module_id":"eco_M00008",
@@ -77,8 +77,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":2.0,
     "module_has_surprises":true,
-    "genes":"fumA, gltA, mdh, sdhA, sucA, sucD",
-    "n_genes":6.0
+    "genes":"frdA, frdB, frdC, frdD, fumA, fumB, fumC, gltA, lpd, mdh, mqo, prpC, sdhA, sdhB, sdhC, sdhD, sucA, sucB, sucC, sucD",
+    "n_genes":20.0
   },
   {
     "module_id":"eco_M00010",
@@ -86,8 +86,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":0.0,
     "module_has_surprises":false,
-    "genes":"gltA",
-    "n_genes":1.0
+    "genes":"gltA, prpC",
+    "n_genes":2.0
   },
   {
     "module_id":"eco_M00011",
@@ -95,8 +95,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":2.0,
     "module_has_surprises":true,
-    "genes":"fumA, mdh, sdhA, sucA, sucD",
-    "n_genes":5.0
+    "genes":"frdA, frdB, frdC, frdD, fumA, fumB, fumC, lpd, mdh, mqo, sdhA, sdhB, sdhC, sdhD, sucA, sucB, sucC, sucD",
+    "n_genes":18.0
   },
   {
     "module_id":"eco_M00012",
@@ -104,8 +104,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"aceA, acnA, gltA, mdh",
-    "n_genes":4.0
+    "genes":"aceA, acnA, acnB, gltA, mdh, prpC",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00015",
@@ -122,8 +122,8 @@
     "class":"Pathway modules; Amino acid metabolism; Lysine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"argD, asd, dapA, dapB, dapD, dapE, dapF, lysA, lysC",
-    "n_genes":9.0
+    "genes":"argD, asd, dapA, dapB, dapD, dapE, dapF, lysA, lysC, metL, thrA",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00017",
@@ -131,8 +131,8 @@
     "class":"Pathway modules; Amino acid metabolism; Cysteine and methionine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"asd, lysC, metA, metB, metC, metH, thrA",
-    "n_genes":7.0
+    "genes":"asd, lysC, malY, metA, metB, metC, metE, metH, metL, thrA",
+    "n_genes":10.0
   },
   {
     "module_id":"eco_M00018",
@@ -140,8 +140,8 @@
     "class":"Pathway modules; Amino acid metabolism; Serine and threonine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"asd, lysC, thrA, thrB, thrC",
-    "n_genes":5.0
+    "genes":"asd, lysC, metL, thrA, thrB, thrC",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00019",
@@ -149,8 +149,8 @@
     "class":"Pathway modules; Amino acid metabolism; Branched-chain amino acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"ilvC, ilvD, ilvE, ilvI",
-    "n_genes":4.0
+    "genes":"ilvB, ilvC, ilvD, ilvE, ilvH, ilvI, ilvM, ilvN",
+    "n_genes":8.0
   },
   {
     "module_id":"eco_M00020",
@@ -176,8 +176,8 @@
     "class":"Pathway modules; Amino acid metabolism; Aromatic amino acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"aroA, aroB, aroC, aroD, aroE, aroG, aroL",
-    "n_genes":7.0
+    "genes":"aroA, aroB, aroC, aroD, aroE, aroF, aroG, aroH, aroK, aroL",
+    "n_genes":10.0
   },
   {
     "module_id":"eco_M00023",
@@ -185,8 +185,8 @@
     "class":"Pathway modules; Amino acid metabolism; Aromatic amino acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"trpA, trpC, trpD, trpE",
-    "n_genes":4.0
+    "genes":"trpA, trpB, trpC, trpD, trpE",
+    "n_genes":5.0
   },
   {
     "module_id":"eco_M00024",
@@ -203,8 +203,8 @@
     "class":"Pathway modules; Amino acid metabolism; Aromatic amino acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"tyrA, tyrB",
-    "n_genes":2.0
+    "genes":"pheA, tyrA, tyrB",
+    "n_genes":3.0
   },
   {
     "module_id":"eco_M00026",
@@ -212,8 +212,8 @@
     "class":"Pathway modules; Amino acid metabolism; Histidine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"hisA, hisB, hisC, hisD, hisF, hisG, hisI",
-    "n_genes":7.0
+    "genes":"hisA, hisB, hisC, hisD, hisF, hisG, hisH, hisI",
+    "n_genes":8.0
   },
   {
     "module_id":"eco_M00027",
@@ -221,8 +221,8 @@
     "class":"Pathway modules; Amino acid metabolism; Other amino acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"gabD, gabT, gadB",
-    "n_genes":3.0
+    "genes":"gabD, gabT, gadA, gadB, puuE",
+    "n_genes":5.0
   },
   {
     "module_id":"eco_M00028",
@@ -239,8 +239,8 @@
     "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"purB, purC, purD, purE, purF, purH, purK, purL, purM, purN",
-    "n_genes":10.0
+    "genes":"purB, purC, purD, purE, purF, purH, purK, purL, purM, purN, purT",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00049",
@@ -266,8 +266,8 @@
     "class":"Pathway modules; Nucleotide metabolism; Pyrimidine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"carB, pyrB, pyrC, pyrD, pyrE, pyrF",
-    "n_genes":6.0
+    "genes":"carA, carB, pyrB, pyrC, pyrD, pyrE, pyrF, pyrI",
+    "n_genes":8.0
   },
   {
     "module_id":"eco_M00052",
@@ -284,8 +284,8 @@
     "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
     "n_equivalences":2.0,
     "module_has_surprises":true,
-    "genes":"ndk, nrdA",
-    "n_genes":2.0
+    "genes":"ndk, nrdA, nrdB, nrdE, nrdF",
+    "n_genes":5.0
   },
   {
     "module_id":"eco_M00060",
@@ -302,8 +302,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"eda, kdgK, uxaC, uxuA, ydfI",
-    "n_genes":5.0
+    "genes":"eda, kdgK, rspA, uxaC, uxuA, uxuB, ydfI",
+    "n_genes":7.0
   },
   {
     "module_id":"eco_M00063",
@@ -329,8 +329,8 @@
     "class":"Pathway modules; Lipid metabolism; Fatty acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"accB, fabD, fabH",
-    "n_genes":3.0
+    "genes":"accA, accB, accC, accD, fabD, fabH",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00083",
@@ -338,8 +338,8 @@
     "class":"Pathway modules; Lipid metabolism; Fatty acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"fabB, fabG, fabI, fabZ",
-    "n_genes":4.0
+    "genes":"fabA, fabB, fabF, fabG, fabI, fabZ",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00086",
@@ -356,8 +356,8 @@
     "class":"Pathway modules; Lipid metabolism; Fatty acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"fadB, fadE, fadI, paaF",
-    "n_genes":4.0
+    "genes":"fadA, fadB, fadE, fadI, fadJ, paaF",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00093",
@@ -365,8 +365,8 @@
     "class":"Pathway modules; Lipid metabolism; Lipid metabolism",
     "n_equivalences":3.0,
     "module_has_surprises":true,
-    "genes":"cdsA, psd, pssA",
-    "n_genes":3.0
+    "genes":"cdsA, psd, pssA, ynbB",
+    "n_genes":4.0
   },
   {
     "module_id":"eco_M00096",
@@ -401,8 +401,8 @@
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"ubiA, ubiC, ubiD, ubiE, ubiF, ubiG, ubiH, ubiI",
-    "n_genes":8.0
+    "genes":"ubiA, ubiC, ubiD, ubiE, ubiF, ubiG, ubiH, ubiI, ubiX",
+    "n_genes":9.0
   },
   {
     "module_id":"eco_M00118",
@@ -437,17 +437,17 @@
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
     "n_equivalences":4.0,
     "module_has_surprises":true,
-    "genes":"gltX, hemA, hemB, hemC, hemD, hemE, hemF, hemG, hemH, hemL",
-    "n_genes":10.0
+    "genes":"gltX, hemA, hemB, hemC, hemD, hemE, hemF, hemG, hemH, hemL, hemN",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00123",
     "title":"Biotin biosynthesis, pimeloyl-ACP\/CoA => biotin",
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
-    "n_equivalences":1.0,
-    "module_has_surprises":false,
-    "genes":"bioB, bioD, bioF",
-    "n_genes":3.0
+    "n_equivalences":3.0,
+    "module_has_surprises":true,
+    "genes":"bidA, bioA, bioB, bioD, bioF",
+    "n_genes":5.0
   },
   {
     "module_id":"eco_M00124",
@@ -464,8 +464,8 @@
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
     "n_equivalences":5.0,
     "module_has_surprises":true,
-    "genes":"ribA, ribB, ribC, ribD, ribE, ribF, ybjI",
-    "n_genes":7.0
+    "genes":"ribA, ribB, ribC, ribD, ribE, ribF, ybjI, yigB",
+    "n_genes":8.0
   },
   {
     "module_id":"eco_M00126",
@@ -491,8 +491,8 @@
     "class":"Pathway modules; Amino acid metabolism; Polyamine biosynthesis",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"speA, speB, speD, speE",
-    "n_genes":4.0
+    "genes":"adiA, speA, speB, speD, speE",
+    "n_genes":5.0
   },
   {
     "module_id":"eco_M00136",
@@ -563,8 +563,8 @@
     "class":"Pathway modules; Energy metabolism; Sulfur metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"cysC, cysD, cysH, cysJ",
-    "n_genes":4.0
+    "genes":"cysC, cysD, cysH, cysI, cysJ, cysN",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00307",
@@ -572,8 +572,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Central carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"aceE",
-    "n_genes":1.0
+    "genes":"aceE, aceF, lpd, ydbK",
+    "n_genes":4.0
   },
   {
     "module_id":"eco_M00364",
@@ -608,8 +608,8 @@
     "class":"Pathway modules; Energy metabolism; Nitrogen metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"narG, nirB",
-    "n_genes":2.0
+    "genes":"napA, napB, narG, narH, narI, narV, narY, narZ, nirB, nirD, nrfA",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00545",
@@ -617,8 +617,8 @@
     "class":"Pathway modules; Xenobiotics biodegradation; Aromatics degradation",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"hcaB, hcaE, mhpA, mhpB, mhpC, mhpD, mhpE, mhpF",
-    "n_genes":8.0
+    "genes":"hcaB, hcaC, hcaD, hcaE, hcaF, mhpA, mhpB, mhpC, mhpD, mhpE, mhpF",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00549",
@@ -626,8 +626,8 @@
     "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
     "n_equivalences":2.0,
     "module_has_surprises":true,
-    "genes":"galU, glk, pgm",
-    "n_genes":3.0
+    "genes":"galF, galU, glk, pgm",
+    "n_genes":4.0
   },
   {
     "module_id":"eco_M00550",
@@ -635,8 +635,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"araD, sgbH, sgbU, ulaC, ulaG",
-    "n_genes":5.0
+    "genes":"araD, sgbE, sgbH, sgbU, ulaA, ulaB, ulaC, ulaD, ulaE, ulaF, ulaG",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00552",
@@ -671,8 +671,8 @@
     "class":"Pathway modules; Amino acid metabolism; Branched-chain amino acid metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"ilvC, ilvD, ilvE, ilvI, tdcB",
-    "n_genes":5.0
+    "genes":"ilvA, ilvB, ilvC, ilvD, ilvE, ilvH, ilvI, ilvM, ilvN, tdcB",
+    "n_genes":10.0
   },
   {
     "module_id":"eco_M00572",
@@ -680,8 +680,8 @@
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
     "n_equivalences":3.0,
     "module_has_surprises":true,
-    "genes":"bioC, bioH, fabB, fabG, fabI, fabZ",
-    "n_genes":6.0
+    "genes":"bioC, bioH, fabB, fabF, fabG, fabI, fabZ",
+    "n_genes":7.0
   },
   {
     "module_id":"eco_M00579",
@@ -734,8 +734,8 @@
     "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"rfbA, rfbB, rfbC, rfbD",
-    "n_genes":4.0
+    "genes":"rfbA, rfbB, rfbC, rfbD, rffG, rffH",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00844",
@@ -743,8 +743,8 @@
     "class":"Pathway modules; Amino acid metabolism; Arginine and proline metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"argF, argG, argH",
-    "n_genes":3.0
+    "genes":"argF, argG, argH, argI",
+    "n_genes":4.0
   },
   {
     "module_id":"eco_M00846",
@@ -752,8 +752,8 @@
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
     "n_equivalences":3.0,
     "module_has_surprises":true,
-    "genes":"cysG, hemA, hemB, hemC, hemD, hemL",
-    "n_genes":6.0
+    "genes":"cysG, hemA, hemB, hemC, hemD, hemL, hemX",
+    "n_genes":7.0
   },
   {
     "module_id":"eco_M00854",
@@ -761,8 +761,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"galU, glgA, glgB, glgC",
-    "n_genes":4.0
+    "genes":"galF, galU, glgA, glgB, glgC",
+    "n_genes":5.0
   },
   {
     "module_id":"eco_M00855",
@@ -770,8 +770,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"malP, pgm",
-    "n_genes":2.0
+    "genes":"glgP, glgX, malP, malQ, pgm",
+    "n_genes":5.0
   },
   {
     "module_id":"eco_M00878",
@@ -779,8 +779,8 @@
     "class":"Pathway modules; Xenobiotics biodegradation; Aromatics degradation",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"paaA, paaF, paaG, paaH, paaJ, paaK, paaZ",
-    "n_genes":7.0
+    "genes":"paaA, paaB, paaC, paaD, paaE, paaF, paaG, paaH, paaJ, paaK, paaZ",
+    "n_genes":11.0
   },
   {
     "module_id":"eco_M00879",
@@ -797,8 +797,8 @@
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"moaA, moaC, moaE, moeA, mog",
-    "n_genes":5.0
+    "genes":"moaA, moaB, moaC, moaE, moeA, mog",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M00881",
@@ -833,8 +833,8 @@
     "class":"Pathway modules; Nucleotide metabolism; Pyrimidine metabolism",
     "n_equivalences":3.0,
     "module_has_surprises":true,
-    "genes":"dut, ndk, nrdA, thyA, tmk",
-    "n_genes":5.0
+    "genes":"dut, ndk, nrdA, nrdB, nrdE, nrdF, thyA, tmk",
+    "n_genes":8.0
   },
   {
     "module_id":"eco_M00939",
@@ -842,8 +842,8 @@
     "class":"Pathway modules; Nucleotide metabolism; Pyrimidine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"rutA, rutB, rutC, rutD, rutE",
-    "n_genes":5.0
+    "genes":"rutA, rutB, rutC, rutD, rutE, rutF, ydfG",
+    "n_genes":7.0
   },
   {
     "module_id":"eco_M00956",
@@ -851,8 +851,8 @@
     "class":"Pathway modules; Amino acid metabolism; Lysine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"gabD, gabT, glaH, ldcC, lhgD, patA, patD",
-    "n_genes":7.0
+    "genes":"cadA, gabD, gabT, glaH, ldcC, lhgD, patA, patD",
+    "n_genes":8.0
   },
   {
     "module_id":"eco_M00958",
@@ -860,8 +860,8 @@
     "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"add, umpG, xapA, xdhA",
-    "n_genes":4.0
+    "genes":"add, deoD, paoA, paoB, paoC, ppnP, umpG, umpH, ushA, xapA, xdhA, xdhB, xdhC, yfiH",
+    "n_genes":14.0
   },
   {
     "module_id":"eco_M00959",
@@ -869,8 +869,8 @@
     "class":"Pathway modules; Nucleotide metabolism; Purine metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"guaD, ushA, xapA, xdhA",
-    "n_genes":4.0
+    "genes":"deoD, guaD, paoA, paoB, paoC, ppnP, umpG, umpH, ushA, xapA, xdhA, xdhB, xdhC, yfiH, yrfG",
+    "n_genes":15.0
   },
   {
     "module_id":"eco_M00970",
@@ -887,8 +887,8 @@
     "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
     "n_equivalences":1.0,
     "module_has_surprises":false,
-    "genes":"acnB, fumA, mdh, prpB, prpC, prpD, sdhA",
-    "n_genes":7.0
+    "genes":"aceA, acnA, acnB, frdA, frdB, frdC, frdD, fumA, fumB, fumC, mdh, mqo, prpB, prpC, prpD, sdhA, sdhB, sdhC, sdhD",
+    "n_genes":19.0
   },
   {
     "module_id":"eco_M00988",
@@ -905,8 +905,8 @@
     "class":"Pathway modules; Metabolism of cofactors and vitamins; Cofactor and vitamin metabolism",
     "n_equivalences":3.0,
     "module_has_surprises":true,
-    "genes":"ubiA, ubiC, ubiD, ubiE, ubiG, ubiU",
-    "n_genes":6.0
+    "genes":"ubiA, ubiC, ubiD, ubiE, ubiG, ubiT, ubiU, ubiV, ubiX",
+    "n_genes":9.0
   },
   {
     "module_id":"eco_M00995",
@@ -959,8 +959,8 @@
     "class":"Pathway modules; Glycan metabolism; Nucleotide sugar biosynthesis",
     "n_equivalences":2.0,
     "module_has_surprises":true,
-    "genes":"rfbA, rfbB, rffC, wecE",
-    "n_genes":4.0
+    "genes":"rfbA, rfbB, rffC, rffG, rffH, wecE",
+    "n_genes":6.0
   },
   {
     "module_id":"eco_M01049",

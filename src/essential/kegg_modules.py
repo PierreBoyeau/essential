@@ -14,8 +14,8 @@ list_kegg_modules(organism, pathway_only=True)
     Signature modules, which are not metabolic routes).
 
 kegg_module_to_graph(module_id, organism)
-    Parse a KEGG module entry into a ``networkx.DiGraph`` whose edges
-    are reactions annotated with KO / EC / gene metadata, and whose
+    Parse a KEGG module entry into a ``networkx.MultiDiGraph`` whose edges
+    are gene-annotated reactions (one edge per gene / isoenzyme), and whose
     graph-level attributes carry the curated source/target compounds.
 
 Joining reactions to genes
@@ -40,16 +40,15 @@ Notes
 - KEGG REST cache: this module reuses ``_fetch`` from
   ``kegg_pathways`` so all responses are cached on disk under
   ``~/.cache/kegg`` by default.
-- No filtering of currency metabolites, no edge merging, no gene
-  deduplication: the graph reflects the module entry as-is.  Reversible
-  reactions (``<=>``) emit two directed edges.
+- No filtering of currency metabolites.  Isoenzymes of the same reaction
+  appear as parallel edges in the MultiDiGraph.  Reversible reactions
+  emit two directed edges per gene when ``tag_bidirectional=True``.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-from pprint import pprint
 from typing import Optional
 
 import networkx as nx
@@ -143,7 +142,7 @@ def kegg_module_to_graph(
     cache_dir: Optional[Path] = Path.home() / ".cache" / "kegg",
     print_info: bool = False,
     tag_bidirectional: bool = False,
-) -> nx.DiGraph:
+) -> nx.MultiDiGraph:
     """
     Parse a KEGG module into a directed reaction graph.
 
@@ -160,26 +159,26 @@ def kegg_module_to_graph(
         Directory for caching KEGG REST responses.  Pass ``None`` to
         disable caching.
     tag_bidirectional :
-        If True, reversible reactions will be emitted as two directed edges (substrate->product and product->substrate).
+        If True, reversible reactions will be emitted as two directed edges
+        (substrate->product and product->substrate).
         If False (default), emit only substrate->product edges.
 
     Returns
     -------
-    networkx.DiGraph
+    networkx.MultiDiGraph
         Nodes are compound KEGG IDs (``"C00031"`` etc.) with attribute
         ``name`` (human-readable compound name from the COMPOUND block).
 
-        Edges are one per ``(substrate, product)`` pair of each reaction
-        in the module's REACTION block.  Reversible reactions emit two
-        directed edges if tag_bidirectional=True.  Edge attributes:
+        Edges are one per ``(substrate, product, gene)`` triple.  Isoenzymes
+        of the same reaction appear as parallel edges between the same node
+        pair.  When no gene mapping exists for a reaction, one edge is still
+        emitted with ``gene=None``.  Reversible reactions emit two directed
+        edges per gene if ``tag_bidirectional=True``.  Edge attributes:
 
         - ``reaction``  : R-number
         - ``kos``       : list of K-numbers catalyzing the reaction
-        - ``ec``        : list of EC numbers
-        - ``genes``     : list of organism gene symbols (may be empty)
-        - ``gene_ids``  : list of organism KEGG gene IDs
-        - ``gene``      : primary gene symbol (``genes[0]`` or ``None``)
-        - ``gene_id``   : primary gene id (``gene_ids[0]`` or ``None``)
+        - ``gene``      : organism gene symbol (``None`` if unmapped)
+        - ``gene_id``   : organism KEGG gene ID (``None`` if unmapped)
         - ``reversible``: bool
 
         Graph-level attributes (``g.graph``):
@@ -214,7 +213,7 @@ def kegg_module_to_graph(
     # rxn_to_kos from the universal ORTHOLOGY block — topology-independent.
     rxn_to_kos: dict[str, list[str]] = _parse_orthology_block(universal_blocks.get("ORTHOLOGY", ""))
 
-    g = nx.DiGraph()
+    g = nx.MultiDiGraph()
     g.graph["module_id"] = org_pid
     g.graph["name"] = name
     g.graph["definition"] = definition
@@ -245,35 +244,66 @@ def kegg_module_to_graph(
                 if (sym, gid) not in seen:
                     seen.add((sym, gid))
                     unique_gene_mappings.append((sym, gid))
-        genes = [p[0] for p in unique_gene_mappings]
-        gene_ids = [p[1] for p in unique_gene_mappings]
 
-        for rxn_id in step["rxn_ids"]:
-            edge_data = {
-                "reaction": rxn_id,
-                "kos": kos,
-                "genes": genes,
-                "gene_ids": gene_ids,
-                "gene": genes[0] if genes else None,  # we only extract the first gene mapping
-                "gene_id": gene_ids[0] if gene_ids else None,
-                "reversible": step["reversible"],
-            }
-            for s in step["substrates"]:
-                for p in step["products"]:
-                    if s not in g:
-                        g.add_node(s, name=compounds.get(s, s))
-                    if p not in g:
-                        g.add_node(p, name=compounds.get(p, p))
+        # Emit one edge per gene (isoenzymes become parallel edges).
+        # Fall back to a single gene=None edge when no mapping exists.
+        # Comma-separated R-numbers within a step are alternative IDs for
+        # the same biochemical transformation, so they are stored as a single
+        # joined string rather than generating one edge per R-number.
+        gene_iter: list[tuple[str | None, str | None]] = (
+            unique_gene_mappings if unique_gene_mappings else [(None, None)]
+        )
+        rxn_str = ",".join(step["rxn_ids"])
+
+        for s in step["substrates"]:
+            for p in step["products"]:
+                if s not in g:
+                    g.add_node(s, name=compounds.get(s, s))
+                if p not in g:
+                    g.add_node(p, name=compounds.get(p, p))
+                for sym, gid in gene_iter:
+                    edge_data = {
+                        "reaction": rxn_str,
+                        "kos": kos,
+                        "gene": sym,
+                        "gene_id": gid,
+                        "reversible": step["reversible"],
+                    }
                     g.add_edge(s, p, **edge_data)
                     if tag_bidirectional and step["reversible"]:
                         g.add_edge(p, s, **edge_data)
 
+    info_lines: list[str] = []
+    info_lines.append(f"{module_id}: {g.graph['name']}")
+    info_lines.append(f"source -> {g.graph['source']} || target -> {g.graph['target']}")
+    info_lines.append("reactions:")
+    for step in reaction_steps:
+        kos_step: list[str] = []
+        kos_seen_step: set[str] = set()
+        for rxn_id in step["rxn_ids"]:
+            for ko in rxn_to_kos.get(rxn_id, []):
+                if ko not in kos_seen_step:
+                    kos_seen_step.add(ko)
+                    kos_step.append(ko)
+        genes_step: list[str] = []
+        genes_seen_step: set[str] = set()
+        for ko in kos_step:
+            for sym, _ in ko_to_gene.get(ko, []):
+                if sym not in genes_seen_step:
+                    genes_seen_step.add(sym)
+                    genes_step.append(sym)
+        arrow = "<=>" if step["reversible"] else "->"
+        subs = " + ".join(f"{c} ({compounds.get(c, c)})" for c in step["substrates"])
+        prods = " + ".join(f"{c} ({compounds.get(c, c)})" for c in step["products"])
+        genes_str = ", ".join(genes_step) if genes_step else "—"
+        rxn_str = ",".join(step["rxn_ids"])
+        info_lines.append(f"  {rxn_str}  [{genes_str}]: {subs} {arrow} {prods}")
+
+    info_str = "\n".join(info_lines)
+    g.graph["info_str"] = info_str
+
     if print_info:
-        pprint(organism_blocks)
-        pprint(ko_to_gene)
-        print(f"{module_id}:", g.graph["name"])
-        print("source ->", g.graph["source"], "|| target ->", g.graph["target"])
-        print(f"nodes={g.number_of_nodes()} edges={g.number_of_edges()}")
+        print(info_str)
 
     return g
 
@@ -499,18 +529,20 @@ def _parse_endpoints_from_name(name: str) -> tuple[Optional[str], Optional[str]]
 
 
 def metabolic_to_operational_graph(
-    metabolic_graph: nx.DiGraph,
+    metabolic_graph: nx.MultiDiGraph,
 ) -> nx.DiGraph:
     """
-    Project a metabolic DiGraph (metabolite nodes, gene-annotated edges)
+    Project a metabolic MultiDiGraph (metabolite nodes, gene-annotated edges)
     onto a gene-level operational graph suitable for PathwayDiscontinuity.
 
     For each metabolite node M, genes on edges producing M (M is target)
     are connected to genes on edges consuming M (M is source).  A gene
     appearing on multiple metabolic edges (e.g. waaA in a convergent
-    pathway) collapses to a single node.  A gene catalyzing consecutive
-    steps (A->B->C) produces no self-loop; it connects to its upstream
-    and downstream neighbors only.
+    pathway) collapses to a single node.  Isoenzymes of the same reaction
+    are never cross-connected: they land in the same producers or consumers
+    set for a given metabolite, and the loop only connects producers to
+    consumers.  A gene catalyzing consecutive steps (A->B->C) produces no
+    self-loop; it connects to its upstream and downstream neighbors only.
 
     Edge attributes on the operational graph:
         metabolites : set of intermediate metabolite IDs linking the pair
@@ -520,17 +552,17 @@ def metabolic_to_operational_graph(
     for metabolite in metabolic_graph.nodes():
         # genes that produce this metabolite (on in-edges)
         producers: set[str] = set()
-        for u, _, data in metabolic_graph.in_edges(metabolite, data=True):
-            for gene in data.get("genes", []):
-                if gene:
-                    producers.add(gene)
+        for _, _, data in metabolic_graph.in_edges(metabolite, data=True):
+            gene = data.get("gene")
+            if gene:
+                producers.add(gene)
 
         # genes that consume this metabolite (on out-edges)
         consumers: set[str] = set()
-        for _, v, data in metabolic_graph.out_edges(metabolite, data=True):
-            for gene in data.get("genes", []):
-                if gene:
-                    consumers.add(gene)
+        for _, _, data in metabolic_graph.out_edges(metabolite, data=True):
+            gene = data.get("gene")
+            if gene:
+                consumers.add(gene)
 
         for prod in producers:
             for cons in consumers:

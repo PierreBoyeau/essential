@@ -63,8 +63,8 @@ class PathwayDiscontinuity:
 
     Nodes are genes (or reactions); edges encode metabolic adjacency, including
     convergent reactions with multiple substrates from independent pathways.
-    ``MultiGraph`` / edge-keyed graphs are not handled; use a simple ``networkx.Graph``
-    or ``networkx.DiGraph``.
+    This class operates on the operational (gene-level) graph produced by
+    ``metabolic_to_operational_graph``, which is always a plain ``DiGraph``.
     """
 
     def __init__(

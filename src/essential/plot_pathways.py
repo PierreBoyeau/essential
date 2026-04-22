@@ -17,20 +17,23 @@ Usage
 >>> fig, ax, info = plot_pathway_results(g, results, pair_scores=results.gene_pair_scores)
 
 # inspect per-gene colors used in the plot:
->>> info["color_mapping"]   # {gene_symbol: "#rrggbb", ...}
+>>> info["gene_color_mapping"]   # {gene_symbol: "#rrggbb", ...}
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from essential.equivalence_results import EquivalenceResults
 
 # ── colour palettes ─────────────────────────────────────────────────
 # Muted qualitative palette for multi-gene equivalence classes.
@@ -74,7 +77,7 @@ def _dag_layout(
     g: nx.DiGraph,
     x_sep: float = 1.6,
     y_sep: float = 1.0,
-) -> tuple[dict, int, int]:
+) -> dict:
     """
     Topological-sort layout for DAG-like graphs.
 
@@ -86,16 +89,12 @@ def _dag_layout(
     -------
     pos : dict
         ``{node: np.array([x, y])}`` in data coordinates.
-    n_layers : int
-        Number of distinct depth layers (columns).
-    max_layer_size : int
-        Height of the tallest layer (rows in the busiest column).
     """
     try:
         topo = list(nx.topological_sort(g))
     except nx.NetworkXUnfeasible:
         pos = nx.kamada_kawai_layout(g)
-        return pos, 1, 1
+        return pos
 
     depth: dict = {}
     for node in topo:
@@ -113,9 +112,7 @@ def _dag_layout(
             y = -(i - (n - 1) / 2) * y_sep
             pos[node] = np.array([d * x_sep, y])
 
-    n_layers = len(layers)
-    max_layer_size = max(len(v) for v in layers.values()) if layers else 1
-    return pos, n_layers, max_layer_size
+    return pos
 
 
 # ── helpers ─────────────────────────────────────────────────────────
@@ -145,37 +142,6 @@ def _build_score_lookup(
     return out
 
 
-def _node_equivalence_color(
-    node,
-    g: nx.DiGraph,
-    gene_to_class: dict[str, int],
-    single_classes: list[int],
-    class_color: dict[int, str],
-    default_color: str,
-) -> str:
-    """
-    Return the equivalence-class color for *node* if every incident edge
-    (in **and** out) belongs to the same non-singleton class; otherwise
-    return *default_color*.
-    """
-    incident = list(g.in_edges(node, data=True)) + list(g.out_edges(node, data=True))
-    if not incident:
-        return default_color
-
-    classes: set[int] = set()
-    for edge in incident:
-        data = edge[2]
-        gene = (data.get("gene") or "").strip()
-        cid = gene_to_class.get(gene)
-        if cid is None or cid in single_classes:
-            return default_color
-        classes.add(cid)
-
-    if len(classes) == 1:
-        return class_color[classes.pop()]
-    return default_color
-
-
 # ── main plotting functions ──────────────────────────────────────────
 def _edge_caption(d):
     gene = (d.get("gene") or "").strip()
@@ -183,6 +149,7 @@ def _edge_caption(d):
     if gene and rxn:
         return f"{gene}\n{rxn}"
     return gene or rxn or ""
+
 
 def plot_metabolic_pathway(g, figsize=(14, 14), dpi=500, seed=42, node_size=400):
     """Draw a KEGG pathway graph: compound names on nodes, gene + reaction on edges."""
@@ -222,9 +189,8 @@ def plot_metabolic_pathway(g, figsize=(14, 14), dpi=500, seed=42, node_size=400)
     return fig, ax
 
 
-
 def plot_pathway_results(
-    g: nx.DiGraph,
+    g: nx.MultiDiGraph,
     equivalence_classes: Union[dict[int, list[str]], "EquivalenceResults"],
     *,
     pair_scores: pd.DataFrame | None = None,
@@ -233,12 +199,9 @@ def plot_pathway_results(
     dpi: int = 300,
     x_sep: float = 1.6,
     y_sep: float = 1.0,
-    # ── nodes ───────────────────────────────────────────────────────
-    node_size: float = 40,
-    node_color: str = "#2d2d2d",
-    node_edge_color: str = "white",
-    node_linewidth: float = 0.5,
-    show_metabolite_labels: bool = False,
+    inter_arrow_distance: float = 0.0,
+    # ── metabolites (nodes) ─────────────────────────────────────────
+    node_mode: Literal["none", "labels"] = "none",
     metabolite_font_size: float = 5.5,
     metabolite_label_offset: tuple[float, float] = (0.0, -0.22),
     # ── edges ───────────────────────────────────────────────────────
@@ -253,7 +216,7 @@ def plot_pathway_results(
     # ── edge labels ─────────────────────────────────────────────────
     font_size: float = 7.5,
     label_offset: tuple[float, float] = (0.0, 0.0),
-    isozyme_label_spacing: float = 0.13,
+    isoenzyme_spacing: float = 0.15,
     # ── score annotations ───────────────────────────────────────────
     show_scores: bool = False,
     score_fmt: str = ".2f",
@@ -269,13 +232,17 @@ def plot_pathway_results(
     ax: plt.Axes | None = None,
 ) -> tuple[plt.Figure, plt.Axes, dict]:
     """
-    Plot a KEGG metabolic graph with edges and nodes coloured by equivalence class.
+    Plot a KEGG metabolic graph with edges coloured by equivalence class.
 
     Parameters
     ----------
-    g : nx.DiGraph
+    g : nx.MultiDiGraph
         The metabolic graph returned by ``kegg_module_to_graph``.
-        Nodes are compound IDs; edges carry ``gene`` / ``reaction`` attributes.
+        Nodes are compound IDs.  Each edge represents one gene (isoenzymes
+        of the same reaction appear as parallel edges).  This function reads:
+
+        - Node attributes: ``name`` (used when ``node_mode="labels"``; falls back to the node id)
+        - Edge attributes: ``gene`` (gene symbol, may be ``None`` for unmapped reactions)
     equivalence_classes : dict or EquivalenceResults
         ``{class_id: [gene, ...]}``, mapping each equivalence class to the
         list of gene symbols it contains.  An ``EquivalenceResults`` object
@@ -302,20 +269,16 @@ def plot_pathway_results(
         between nodes in the same column.  Increase to spread the graph
         vertically.
 
-    node_size : float
-        Marker area for compound nodes.
-    node_color : str
-        Fallback fill colour for nodes that straddle two or more equivalence
-        classes (or have no class assignment).  Nodes whose every incident
-        edge belongs to the same non-singleton class are automatically
-        filled with that class's colour.
-    node_edge_color : str
-        Stroke colour of the node marker outline.
-    node_linewidth : float
-        Line width of the node marker outline.
-    show_metabolite_labels : bool
-        If *True*, render the compound name (``node["name"]`` or node ID)
-        near each compound node.
+    inter_arrow_distance : float
+        Vertical offset in data-units (= inches when ``figsize`` is auto)
+        used to separate multiple arrows that enter or leave the same node.
+        This reduces overplotting when a node has several incoming/outgoing
+        edges.  Set to 0 to disable.
+
+    node_mode : {"none", "labels"}
+        How to render metabolite nodes.  ``"none"`` draws no nodes at all.
+        ``"labels"`` draws the metabolite name (``node["name"]`` or node ID)
+        at each node position.
     metabolite_font_size : float
         Font size for compound / metabolite labels.
     metabolite_label_offset : (float, float)
@@ -349,8 +312,15 @@ def plot_pathway_results(
         Font size for gene-symbol labels on edges.
     label_offset : (float, float)
         ``(dx, dy)`` offset in data units applied to every edge label
-        relative to the midpoint of its edge.  Use this to nudge labels
+        relative to the midpoint of the edge.  Use this to nudge labels
         away from overlapping arrows, e.g. ``(0.0, 0.15)``.
+    isoenzyme_spacing : float
+        Perpendicular separation in data-units (= inches when ``figsize``
+        is auto) between parallel isoenzyme edges that share the same
+        ``(substrate, product)`` node pair.  Each isoenzyme arrow and its
+        label are shifted symmetrically along the unit vector orthogonal
+        to the edge direction, so the separation is correct regardless of
+        the edge's orientation in the layout.  Set to 0 to disable.
 
     show_scores : bool
         If *True* and ``pair_scores`` is provided, annotate each intermediate
@@ -408,10 +378,10 @@ def plot_pathway_results(
 
     # ── class -> colour ──────────────────────────────────────────────
     unique_classes = sorted(equiv.keys())
-    multi_classes    = [c for c in unique_classes if len(equiv[c]) > 1]
-    single_classes   = [c for c in unique_classes if len(equiv[c]) == 1]
+    multi_classes = [c for c in unique_classes if len(equiv[c]) > 1]
+    single_classes = [c for c in unique_classes if len(equiv[c]) == 1]
     # Split singletons: genes with no data vs. genes that are genuinely surprising.
-    unscored_classes  = [c for c in single_classes if equiv[c][0] in unscored_genes_set]
+    unscored_classes = [c for c in single_classes if equiv[c][0] in unscored_genes_set]
     surprising_classes = [c for c in single_classes if equiv[c][0] not in unscored_genes_set]
 
     class_color: dict[int, str] = {}
@@ -429,7 +399,7 @@ def plot_pathway_results(
             class_color[cid] = surprising_color
 
     # ── layout ──────────────────────────────────────────────────────
-    pos, n_layers, max_layer_size = _dag_layout(g, x_sep=x_sep, y_sep=y_sep)
+    pos = _dag_layout(g, x_sep=x_sep, y_sep=y_sep)
 
     # ── axis data-limits (computed once, reused for figsize and ax.*lim) ──
     # Padding is half a step so nodes never touch the axes edge.
@@ -450,14 +420,14 @@ def plot_pathway_results(
     # intentionally not used.
     #
     # Fixed margins in inches:
-    _ml = 0.20                           # left
-    _mr = 0.20                           # right
-    _mb = 0.20                           # bottom
-    _mt = 0.50 if show_title else 0.20   # top (extra headroom for title text)
+    _ml = 0.20  # left
+    _mr = 0.20  # right
+    _mb = 0.20  # bottom
+    _mt = 0.50 if show_title else 0.20  # top (extra headroom for title text)
 
     if ax is None:
         if figsize is None:
-            axes_w = xlim[1] - xlim[0]   # data units == inches
+            axes_w = xlim[1] - xlim[0]  # data units == inches
             axes_h = ylim[1] - ylim[0]
             figsize = (
                 max(2.0, axes_w + _ml + _mr),
@@ -467,10 +437,10 @@ def plot_pathway_results(
         # Anchor axes at the fixed inch margins so the inch-per-unit ratio is
         # preserved and font sizes stay accurate regardless of figure size.
         fig.subplots_adjust(
-            left   = _ml / figsize[0],
-            right  = 1.0 - _mr / figsize[0],
-            bottom = _mb / figsize[1],
-            top    = 1.0 - _mt / figsize[1],
+            left=_ml / figsize[0],
+            right=1.0 - _mr / figsize[0],
+            bottom=_mb / figsize[1],
+            top=1.0 - _mt / figsize[1],
         )
     else:
         fig = ax.get_figure()
@@ -483,22 +453,52 @@ def plot_pathway_results(
 
     # ── column index per node (used to detect skip edges) ───────────
     # pos[n][0] == col * x_sep, so dividing and rounding recovers the column.
-    node_col: dict = {
-        n: round(pos[n][0] / x_sep) if x_sep > 0 else 0
-        for n in g.nodes()
-    }
+    node_col: dict = {n: round(pos[n][0] / x_sep) if x_sep > 0 else 0 for n in g.nodes()}
+
+    # ── inter-arrow offsets (separate edges sharing endpoints) ──────
+    # Offsets are in data units (== inches when figsize is auto).
+    out_offset_by_edge: dict[tuple, float] = {}
+    in_offset_by_edge: dict[tuple, float] = {}
+    if inter_arrow_distance > 0:
+        for n in g.nodes():
+            outs = list(g.out_edges(n))
+            if outs:
+                outs_sorted = sorted(outs, key=lambda e: float(pos[e[1]][1]))
+                m = len(outs_sorted)
+                for i, (_, v) in enumerate(outs_sorted):
+                    out_offset_by_edge[(n, v)] = (i - (m - 1) / 2) * inter_arrow_distance
+
+            ins = list(g.in_edges(n))
+            if ins:
+                ins_sorted = sorted(ins, key=lambda e: float(pos[e[0]][1]))
+                m = len(ins_sorted)
+                for i, (u, _) in enumerate(ins_sorted):
+                    in_offset_by_edge[(u, n)] = (i - (m - 1) / 2) * inter_arrow_distance
+
+    # ── isoenzyme perpendicular offsets ─────────────────────────────
+    # For each (u, v) node pair that has > 1 edge (isoenzymes), compute
+    # a 2D shift along the unit perpendicular to the edge direction so
+    # parallel arrows and their labels fan out symmetrically.
+    # Keyed by (u, v, edge_key); zero vector for non-isoenzyme edges.
+    perp_offset_by_edge: dict[tuple, np.ndarray] = {}
+    iso_groups: dict[tuple, list] = defaultdict(list)
+    for u, v, k in g.edges(keys=True):
+        iso_groups[(u, v)].append(k)
+    for (u, v), keys in iso_groups.items():
+        n_iso = len(keys)
+        d = np.array(pos[v], dtype=float) - np.array(pos[u], dtype=float)
+        norm = float(np.linalg.norm(d))
+        perp = np.array([-d[1], d[0]]) / norm if norm > 1e-9 else np.array([0.0, 1.0])
+        for i, k in enumerate(keys):
+            scalar = (i - (n_iso - 1) / 2) * isoenzyme_spacing
+            perp_offset_by_edge[(u, v, k)] = perp * scalar
 
     # ── draw edges ──────────────────────────────────────────────────
     _NEUTRAL_ARROW = "#888888"
-    for u, v, data in g.edges(data=True):
-        genes_list = [g.strip() for g in (data.get("genes") or []) if g and g.strip()]
-        if not genes_list and data.get("gene"):
-            genes_list = [data["gene"].strip()]
-
-        cids_present = [gene_to_class.get(g) for g in genes_list if gene_to_class.get(g) is not None]
-        unique_cids = set(cids_present)
-        if len(unique_cids) == 1:
-            cid = next(iter(unique_cids))
+    for u, v, k, data in g.edges(keys=True, data=True):
+        gene = (data.get("gene") or "").strip()
+        cid = gene_to_class.get(gene) if gene else None
+        if cid is not None:
             color = class_color[cid]
             alpha = surprising_alpha if cid in single_classes else 1.0
         else:
@@ -511,69 +511,61 @@ def plot_pathway_results(
         else:
             edge_cs = connectionstyle
 
+        perp_off = perp_offset_by_edge.get((u, v, k), np.zeros(2))
+        p0 = np.array(pos[u], dtype=float) + perp_off
+        p1 = np.array(pos[v], dtype=float) + perp_off
+        edge_off = 0.5 * (out_offset_by_edge.get((u, v), 0.0) + in_offset_by_edge.get((u, v), 0.0))
+        p0[1] += edge_off
+        p1[1] += edge_off
+
         ax.annotate(
             "",
-            xy=pos[v],
-            xytext=pos[u],
-            arrowprops=dict(
+            xy=p1,
+            xytext=p0,
+            arrowprops=dict[str, Any](
                 arrowstyle=arrow_style,
                 color=color,
                 lw=edge_width,
                 alpha=alpha,
                 mutation_scale=arrow_mutation,
                 connectionstyle=edge_cs,
-                shrinkA=np.sqrt(node_size) * 0.55,
-                shrinkB=np.sqrt(node_size) * 0.55,
+                shrinkA=0.0,
+                shrinkB=0.0,
             ),
         )
 
     # ── edge labels (gene symbols, italic per biology convention) ───
     dx, dy = label_offset
-    for u, v, data in g.edges(data=True):
-        genes_list = [g.strip() for g in (data.get("genes") or []) if g and g.strip()]
-        if not genes_list and data.get("gene"):
-            genes_list = [data["gene"].strip()]
-        if not genes_list:
+    for u, v, k, data in g.edges(keys=True, data=True):
+        gene = (data.get("gene") or "").strip()
+        if not gene:
             continue
 
-        n = len(genes_list)
-        x_mid = (pos[u][0] + pos[v][0]) / 2 + dx
-        y_mid = (pos[u][1] + pos[v][1]) / 2 + dy
+        perp_off = perp_offset_by_edge.get((u, v, k), np.zeros(2))
+        p0 = np.array(pos[u], dtype=float) + perp_off
+        p1 = np.array(pos[v], dtype=float) + perp_off
+        edge_off = 0.5 * (out_offset_by_edge.get((u, v), 0.0) + in_offset_by_edge.get((u, v), 0.0))
+        p0[1] += edge_off
+        p1[1] += edge_off
 
-        for i, gene in enumerate(genes_list):
-            cid     = gene_to_class.get(gene)
-            label_c = class_color.get(cid, surprising_color) if cid is not None else surprising_color
-            y_off   = (i - (n - 1) / 2) * isozyme_label_spacing
-            ax.text(
-                x_mid, y_mid + y_off,
-                gene,
-                fontsize=font_size,
-                fontstyle="italic",
-                fontweight="bold",
-                fontfamily="sans-serif",
-                color=label_c,
-                ha="center",
-                va="center",
-                zorder=5,
-            )
+        x_mid = (p0[0] + p1[0]) / 2 + dx
+        y_mid = (p0[1] + p1[1]) / 2 + dy
 
-        # Grouping bar: thin vertical line with small horizontal ticks,
-        # drawn to the left of the label stack when there are isoenzymes.
-        if n > 1:
-            half_span = (n - 1) / 2 * isozyme_label_spacing
-            bar_x     = x_mid - 0.25
-            tick_w    = 0.05
-            ax.plot(
-                [bar_x, bar_x],
-                [y_mid - half_span, y_mid + half_span],
-                color="#aaaaaa", lw=0.8, zorder=4, solid_capstyle="round",
-            )
-            for y_tick in (y_mid - half_span, y_mid + half_span):
-                ax.plot(
-                    [bar_x, bar_x + tick_w],
-                    [y_tick, y_tick],
-                    color="#aaaaaa", lw=0.8, zorder=4,
-                )
+        cid = gene_to_class.get(gene)
+        label_c = class_color.get(cid, surprising_color) if cid is not None else surprising_color
+        ax.text(
+            x_mid,
+            y_mid,
+            gene,
+            fontsize=font_size,
+            fontstyle="italic",
+            fontweight="bold",
+            fontfamily="sans-serif",
+            color=label_c,
+            ha="center",
+            va="center",
+            zorder=5,
+        )
 
     # ── optional score annotations at intermediate nodes ────────────
     if show_scores and score_lookup:
@@ -606,46 +598,29 @@ def plot_pathway_results(
                             zorder=4,
                         )
 
-    # ── draw nodes (coloured by equivalence class where unambiguous) ─
-    # A node gets its class colour only when every incident edge belongs to
-    # the same non-singleton class; otherwise node_color is used.
-    node_colors = [
-        _node_equivalence_color(
-            n, g, gene_to_class, single_classes, class_color, node_color
-        )
-        for n in g.nodes()
-    ]
-
-    node_collection = nx.draw_networkx_nodes(
-        g, pos, ax=ax,
-        node_size=node_size,
-        node_color=node_colors,
-        edgecolors=node_edge_color,
-        linewidths=node_linewidth,
-    )
-    if node_collection is not None:
-        node_collection.set_zorder(6)
-
-    # ── optional metabolite labels ──────────────────────────────────
-    if show_metabolite_labels:
+    # ── metabolite labels (optional) ────────────────────────────────
+    if node_mode == "labels":
         mdx, mdy = metabolite_label_offset
         for node, ndata in g.nodes(data=True):
             label = ndata.get("name", node)
             x, y = pos[node]
             ax.text(
-                x + mdx, y + mdy,
+                x + mdx,
+                y + mdy,
                 label,
                 fontsize=metabolite_font_size,
-                color="#777777",
+                color="#444444",
                 ha="center",
                 va="top",
                 zorder=3,
             )
+    elif node_mode != "none":
+        raise ValueError(f"node_mode must be 'none' or 'labels', got {node_mode!r}")
 
     # ── title ───────────────────────────────────────────────────────
     if show_title:
         module_name = g.graph.get("name", "")
-        module_id   = g.graph.get("module_id", "")
+        module_id = g.graph.get("module_id", "")
         if module_id and module_name:
             title = f"{module_id}  —  {module_name}"
         else:
@@ -670,32 +645,42 @@ def plot_pathway_results(
         handles = []
         for cid in multi_classes:
             genes_str = ", ".join(sorted(equiv[cid]))
-            handles.append(mpatches.Patch(
-                facecolor=class_color[cid], edgecolor="none", label=genes_str,
-            ))
+            handles.append(
+                mpatches.Patch(
+                    facecolor=class_color[cid],
+                    edgecolor="none",
+                    label=genes_str,
+                )
+            )
         if surprising_classes:
             if color_surprising_individually:
                 for cid in surprising_classes:
                     gene = equiv[cid][0]
-                    handles.append(mpatches.Patch(
-                        facecolor=class_color[cid],
+                    handles.append(
+                        mpatches.Patch(
+                            facecolor=class_color[cid],
+                            edgecolor="none",
+                            alpha=surprising_alpha,
+                            label=gene,
+                        )
+                    )
+            else:
+                handles.append(
+                    mpatches.Patch(
+                        facecolor=surprising_color,
                         edgecolor="none",
                         alpha=surprising_alpha,
-                        label=gene,
-                    ))
-            else:
-                handles.append(mpatches.Patch(
-                    facecolor=surprising_color,
-                    edgecolor="none",
-                    alpha=surprising_alpha,
-                    label="surprising",
-                ))
+                        label="surprising",
+                    )
+                )
         if unscored_classes:
-            handles.append(mpatches.Patch(
-                facecolor=_UNSCORED_COLOR,
-                edgecolor="none",
-                label="not observed",
-            ))
+            handles.append(
+                mpatches.Patch(
+                    facecolor=_UNSCORED_COLOR,
+                    edgecolor="none",
+                    label="not observed",
+                )
+            )
         ax.legend(
             handles=handles,
             title="Equivalence classes",
@@ -732,14 +717,12 @@ def plot_pathway_results(
 
     # gene_to_class_name: each gene -> human-readable equivalence class label (sorted gene list).
     gene_to_class_name: dict[str, str] = {
-        gene: ", ".join(sorted(equiv[cid]))
-        for gene, cid in gene_to_class.items()
+        gene: ", ".join(sorted(equiv[cid])) for gene, cid in gene_to_class.items()
     }
 
     # class_color_mapping: equivalence class label -> color.
     class_color_mapping: dict[str, str] = {
-        ", ".join(sorted(equiv[cid])): color
-        for cid, color in class_color.items()
+        ", ".join(sorted(equiv[cid])): color for cid, color in class_color.items()
     }
 
     plot_info: dict = {
