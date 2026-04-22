@@ -25,7 +25,7 @@ RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
 WORKDIR /workspace
 
 COPY requirements.txt .
-# RUN pip install -r requirements.txt
-RUN pip install -e . --extra-index-url https://download.pytorch.org/whl/cu128 --extra-index-url https://pypi.nvidia.com
+RUN pip install -r requirements.txt
+# RUN pip install -e . --extra-index-url https://download.pytorch.org/whl/cu128 --extra-index-url https://pypi.nvidia.com
 
 CMD ["/bin/bash"]

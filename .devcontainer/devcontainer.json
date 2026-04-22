@@ -8,9 +8,9 @@
     "workspaceFolder": "/workspace",
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
 
-    // Mount the data folder
+    // Mount the data folder from local NVMe (mirrored from /ewsc by initializeCommand)
     "mounts": [
-        "source=/ewsc/pboyeau/data,target=/workspace/data,type=bind,consistency=cached",
+        "source=/scratch/pboyeau/data_essential,target=/workspace/data,type=bind,readonly"
     ],
 
     // Forward the Jupyter port
@@ -21,6 +21,10 @@
         "--device=nvidia.com/gpu=all",
         "--env-file=${localWorkspaceFolder}/.env"
     ],
+
+    // Runs on the host before the container is built/started.
+    // Mirrors a whitelisted subset of /ewsc/pboyeau/data to /scratch/pboyeau/data_essential (local NVMe).
+    "initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/sync_data.sh",
 
     "postCreateCommand": "pip install -e .",
 
