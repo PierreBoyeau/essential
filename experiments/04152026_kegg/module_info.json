@@ -640,7 +640,7 @@
   },
   {
     "module_id":"eco_M00552",
-    "title":"D-galactonate degradation, De Ley-Doudoroff pathway, D-galactonate => glycerate-3P",
+    "title":"Galactonate degradation, De Ley-Doudoroff pathway, galactonate => glycerate-3P",
     "class":"Pathway modules; Carbohydrate metabolism; Other carbohydrate metabolism",
     "n_equivalences":2.0,
     "module_has_surprises":true,

@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python3.11 \
+    python3.11-dev \
     tmux \
     git \
     curl \
@@ -26,6 +27,10 @@ WORKDIR /workspace
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-# RUN pip install -e . --extra-index-url https://download.pytorch.org/whl/cu128 --extra-index-url https://pypi.nvidia.com
+RUN pip install evo2
+RUN pip install --no-build-isolation \
+    --extra-index-url https://pypi.nvidia.com \
+    transformer-engine-torch==2.3.0
+RUN pip install flash-attn==2.8.0.post2 --no-build-isolation
 
 CMD ["/bin/bash"]

@@ -10,7 +10,7 @@
 
     // Mount the data folder from local NVMe (mirrored from /ewsc by initializeCommand)
     "mounts": [
-        "source=/scratch/pboyeau/data_essential,target=/workspace/data,type=bind,readonly"
+        "source=/data/pboyeau/data_essential,target=/workspace/data,type=bind,readonly"
     ],
 
     // Forward the Jupyter port
@@ -23,10 +23,9 @@
     ],
 
     // Runs on the host before the container is built/started.
-    // Mirrors a whitelisted subset of /ewsc/pboyeau/data to /scratch/pboyeau/data_essential (local NVMe).
-    "initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/sync_data.sh",
-
-    "postCreateCommand": "pip install -e .",
+    // Mirrors a whitelisted subset of /ewsc/pboyeau/data to /data/pboyeau/data_essential (local NVMe).
+    // "initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/sync_data.sh",
+    "postCreateCommand": "pip install -e . --no-deps",
 
 
     // Install useful extensions

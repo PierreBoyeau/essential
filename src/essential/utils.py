@@ -16,7 +16,8 @@ PLOTNINE_DEFAULT_THEME = gg.theme(
     legend_text=gg.element_text(size=6),
 )
 
-FONT_FAMILY = "Arial"
+# FONT_FAMILY = "Arial"
+FONT_FAMILY = "sans-serif"
 
 PLOTNINE_DEFAULT_THEME_2 = gg.theme(
     # Half-open frame: thin left + bottom axes only
