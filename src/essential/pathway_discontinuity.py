@@ -77,6 +77,7 @@ class PathwayDiscontinuity:
         perturbation_obs_key: str = "perturbation_class",
         sigma_heuristic_max_n: int = 2000,
         sigma_heuristic_rng: np.random.Generator | None = None,
+        control_perturbation_key: str | None = None,
     ) -> None:
         self.adata = adata
         self.metabolic_graph = metabolic_graph
@@ -88,6 +89,7 @@ class PathwayDiscontinuity:
                 Z, max_n=sigma_heuristic_max_n, rng=sigma_heuristic_rng
             )
         self.global_sigma = float(global_sigma)
+        self.control_perturbation_key = control_perturbation_key
         self._mmd = MMDTestJax(sigma=self.global_sigma, max_n=500)
 
     def _extract_adjacent_pairs(self, g: nx.Graph | nx.DiGraph) -> set[frozenset[str]]:
@@ -191,4 +193,5 @@ class PathwayDiscontinuity:
             metabolic_graph=g,
             unscored_genes=unscored_genes,
             n_equivalences=n_equivalences,
+            control_node=self.control_perturbation_key,
         )

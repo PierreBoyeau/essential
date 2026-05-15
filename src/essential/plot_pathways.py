@@ -36,11 +36,11 @@ if TYPE_CHECKING:
     from essential.equivalence_results import EquivalenceResults
 
 # ── colour palettes ─────────────────────────────────────────────────
-# Muted qualitative palette for multi-gene equivalence classes.
+# Unified qualitative palette for all scored equivalence classes.
 # Based on Tol-Bright (P. Tol, 2021) with reduced saturation.
-_CLASS_COLORS = [
+_PALETTE = [
     "#6A9EC2",  # muted blue
-    # "#D97B84",  # muted rose
+    "#E05C5C",  # muted red
     "#5A9E5A",  # muted green
     "#C4AA44",  # muted olive / yellow
     "#72BBCC",  # muted cyan
@@ -49,22 +49,8 @@ _CLASS_COLORS = [
     "#55A88A",  # muted teal
 ]
 
-# Vivid palette for singleton / surprising genes.
-# Used both as the flat ``surprising_color`` fallback and, when
-# ``color_surprising_individually=True``, cycled per singleton gene.
-_SURPRISING_COLORS = [
-    "#E05C5C",  # vivid red
-    "#F5A623",  # vivid amber
-    "#9B59B6",  # vivid purple
-    "#E67E22",  # vivid orange
-    "#27AE60",  # vivid green
-    "#E91E63",  # vivid pink
-    "#1ABC9C",  # vivid teal
-    "#3498DB",  # vivid blue
-]
-
-# Default single surprising color (first entry of the vivid palette).
-_SURPRISING_DEFAULT = _SURPRISING_COLORS[0]
+# Fixed grey for the control / no-phenotype class.
+_CONTROL_COLOR = "#BCBCBC"
 
 # Color for genes that have no observations in the dataset (not evaluable).
 _UNSCORED_COLOR = "#AAAAAA"
@@ -206,9 +192,6 @@ def plot_pathway_results(
     metabolite_label_offset: tuple[float, float] = (0.0, -0.22),
     # ── edges ───────────────────────────────────────────────────────
     edge_width: float = 3.2,
-    surprising_color: str = _SURPRISING_DEFAULT,
-    surprising_alpha: float = 1.0,
-    color_surprising_individually: bool = False,
     arrow_style: str = "-|>",
     arrow_mutation: float = 14,
     connectionstyle: str = "arc3,rad=0.0",
@@ -288,18 +271,6 @@ def plot_pathway_results(
 
     edge_width : float
         Line width of arrow edges.
-    surprising_color : str
-        Colour used for all singleton (surprising) edges when
-        ``color_surprising_individually=False`` (default).  Defaults to a
-        vivid red so surprising edges stand out against the muted multi-class
-        palette.
-    surprising_alpha : float
-        Opacity for surprising edges (default 1.0).
-    color_surprising_individually : bool
-        When *False* (default), all singleton genes share ``surprising_color``.
-        When *True*, each singleton gene is assigned its own distinct vivid
-        color drawn from ``_SURPRISING_COLORS``, making individual singletons
-        distinguishable from one another in the legend and on the graph.
     arrow_style : str
         Matplotlib arrowstyle string (default ``"-|>"``).
     arrow_mutation : float
@@ -358,10 +329,8 @@ def plot_pathway_results(
 
         ``"color_mapping"`` : dict[str, str]
             Maps every gene symbol that appears on an edge to its hex color
-            as rendered in the plot.  Genes in the same multi-gene
-            equivalence class share a color; singleton genes share
-            ``surprising_color`` unless ``color_surprising_individually``
-            is *True*, in which case each has a unique vivid color.
+            as rendered in the plot.  All scored equivalence classes share
+            a unified qualitative palette; control class is grey.
     """
     equiv = _resolve_equivalence(equivalence_classes)
     unscored_genes_set: set[str] = (
@@ -377,26 +346,25 @@ def plot_pathway_results(
             gene_to_class[gene] = cid
 
     # ── class -> colour ──────────────────────────────────────────────
+    control_node: str | None = getattr(equivalence_classes, "control_node", None)
+    control_class: int | None = gene_to_class.get(control_node) if control_node else None
+
     unique_classes = sorted(equiv.keys())
-    multi_classes = [c for c in unique_classes if len(equiv[c]) > 1]
-    single_classes = [c for c in unique_classes if len(equiv[c]) == 1]
-    # Split singletons: genes with no data vs. genes that are genuinely surprising.
-    unscored_classes = [c for c in single_classes if equiv[c][0] in unscored_genes_set]
-    surprising_classes = [c for c in single_classes if equiv[c][0] not in unscored_genes_set]
+    unscored_classes = [
+        c for c in unique_classes if len(equiv[c]) == 1 and equiv[c][0] in unscored_genes_set
+    ]
+    unscored_class_set = set(unscored_classes)
+    scored_classes = [
+        c for c in unique_classes if c not in unscored_class_set and c != control_class
+    ]
 
     class_color: dict[int, str] = {}
-    for i, cid in enumerate(multi_classes):
-        class_color[cid] = _CLASS_COLORS[i % len(_CLASS_COLORS)]
-
+    for i, cid in enumerate(scored_classes):
+        class_color[cid] = _PALETTE[i % len(_PALETTE)]
     for cid in unscored_classes:
         class_color[cid] = _UNSCORED_COLOR
-
-    if color_surprising_individually:
-        for i, cid in enumerate(surprising_classes):
-            class_color[cid] = _SURPRISING_COLORS[i % len(_SURPRISING_COLORS)]
-    else:
-        for cid in surprising_classes:
-            class_color[cid] = surprising_color
+    if control_class is not None:
+        class_color[control_class] = _CONTROL_COLOR
 
     # ── layout ──────────────────────────────────────────────────────
     pos = _dag_layout(g, x_sep=x_sep, y_sep=y_sep)
@@ -500,7 +468,7 @@ def plot_pathway_results(
         cid = gene_to_class.get(gene) if gene else None
         if cid is not None:
             color = class_color[cid]
-            alpha = surprising_alpha if cid in single_classes else 1.0
+            alpha = 1.0
         else:
             color = _NEUTRAL_ARROW
             alpha = 1.0
@@ -552,7 +520,7 @@ def plot_pathway_results(
         y_mid = (p0[1] + p1[1]) / 2 + dy
 
         cid = gene_to_class.get(gene)
-        label_c = class_color.get(cid, surprising_color) if cid is not None else surprising_color
+        label_c = class_color.get(cid, _CONTROL_COLOR) if cid is not None else _CONTROL_COLOR
         ax.text(
             x_mid,
             y_mid,
@@ -635,44 +603,19 @@ def plot_pathway_results(
             )
 
     # ── legend ──────────────────────────────────────────────────────
-    has_legend_entries = (
-        multi_classes
-        or (color_surprising_individually and surprising_classes)
-        or surprising_classes
-        or unscored_classes
-    )
+    has_legend_entries = bool(scored_classes or control_class is not None or unscored_classes)
     if show_legend and has_legend_entries:
         handles = []
-        for cid in multi_classes:
-            genes_str = ", ".join(sorted(equiv[cid]))
+        for cid in scored_classes:
             handles.append(
                 mpatches.Patch(
-                    facecolor=class_color[cid],
-                    edgecolor="none",
-                    label=genes_str,
+                    facecolor=class_color[cid], edgecolor="none", label=_class_label(cid)
                 )
             )
-        if surprising_classes:
-            if color_surprising_individually:
-                for cid in surprising_classes:
-                    gene = equiv[cid][0]
-                    handles.append(
-                        mpatches.Patch(
-                            facecolor=class_color[cid],
-                            edgecolor="none",
-                            alpha=surprising_alpha,
-                            label=gene,
-                        )
-                    )
-            else:
-                handles.append(
-                    mpatches.Patch(
-                        facecolor=surprising_color,
-                        edgecolor="none",
-                        alpha=surprising_alpha,
-                        label="surprising",
-                    )
-                )
+        if control_class is not None:
+            handles.append(
+                mpatches.Patch(facecolor=_CONTROL_COLOR, edgecolor="none", label="no phenotype")
+            )
         if unscored_classes:
             handles.append(
                 mpatches.Patch(
@@ -704,6 +647,11 @@ def plot_pathway_results(
     ax.set_axis_off()
 
     # ── build plot_info ─────────────────────────────────────────────
+    def _class_label(cid: int) -> str:
+        if cid == control_class:
+            return "no phenotype"
+        return ", ".join(sorted(equiv[cid]))
+
     # gene_color_mapping: every gene that appears on an edge -> its rendered hex color.
     gene_color_mapping: dict[str, str] = {}
     for _, _, data in g.edges(data=True):
@@ -712,17 +660,17 @@ def plot_pathway_results(
             continue
         cid = gene_to_class.get(gene)
         gene_color_mapping[gene] = (
-            class_color.get(cid, surprising_color) if cid is not None else surprising_color
+            class_color.get(cid, _CONTROL_COLOR) if cid is not None else _CONTROL_COLOR
         )
 
     # gene_to_class_name: each gene -> human-readable equivalence class label (sorted gene list).
     gene_to_class_name: dict[str, str] = {
-        gene: ", ".join(sorted(equiv[cid])) for gene, cid in gene_to_class.items()
+        gene: _class_label(cid) for gene, cid in gene_to_class.items() if gene != control_node
     }
 
     # class_color_mapping: equivalence class label -> color.
     class_color_mapping: dict[str, str] = {
-        ", ".join(sorted(equiv[cid])): color for cid, color in class_color.items()
+        _class_label(cid): color for cid, color in class_color.items()
     }
 
     plot_info: dict = {

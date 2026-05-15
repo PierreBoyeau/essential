@@ -26,6 +26,8 @@ DATASETS=(
     251117_genomescale_CRISPRi
     Nov2025_DE122_genomescale_EZRDM_Glu_newpipeline_preprocessed
     260309_lce75_genomescale_ezrdm_glu_preprocessed
+    de122_lce75
+    Rapp_2026
     # Eaton_2025
 )
 
