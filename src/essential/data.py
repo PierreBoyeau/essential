@@ -1,8 +1,9 @@
-import pandas as pd
-import numpy as np
-import os
-import scanpy as sc
 import json
+import os
+
+import numpy as np
+import pandas as pd
+import scanpy as sc
 
 # Paths used in experiments - keeping them centralized here
 FITNESS_DATA_PATH = "/workspace/data/calvo2020_dcas9fitness/Supp_data2_log2FC.csv"
@@ -187,6 +188,27 @@ def load_regulondb():
     return ref_db
 
 
+# Maps RegulonDB complex/operon regulator names to constituent gene names.
+# RegulonDB sometimes records the name of the active complex (e.g. IHF heterodimer)
+# rather than individual gene names, causing those rows to be dropped when
+# matching against adata var_names.
+_REGULATOR_ALIASES = {
+    "h-ns": ["hns"],
+    "ihf": ["ihfa", "ihfb"],
+    "flhdc": ["flhd", "flhc"],
+    "hu": ["hupa", "hupb"],
+    "rcsab": ["rcsa", "rcsb"],
+    "rcsb-bglj": ["rcsb", "bglj"],
+    "dinj-yafq": ["dinj", "yafq"],
+    "mazef": ["maze", "mazf"],
+    "hipab": ["hipa", "hipb"],
+    "higba": ["higb", "higa"],
+    "relbe": ["relb", "rele"],
+    "yefmb": ["yefm", "yoeb"],
+    "crp-sxy": ["crp", "sxy"],
+}
+
+
 def load_regulondb_full(drop_duplicates=True):
     """
     Load and preprocess RegulonDB regulatory interactions with expanded gene targets.
@@ -221,14 +243,18 @@ def load_regulondb_full(drop_duplicates=True):
     ]
 
     ref_db = (
-        ref_db.loc[lambda x: x["riType"].isin(valid_ri_types)]
+        ref_db
+        # .loc[lambda x: x["riType"]]
+        #    .isin(valid_ri_types)]
         .assign(
             target_genes=lambda x: x["targetTuOrGene"].apply(_parse_target_genes),
-            regulator_gene=lambda x: x["regulatorName"].str.lower(),
+            regulator_gene=lambda x: x["regulatorName"]
+            .str.lower()
+            .map(lambda g: _REGULATOR_ALIASES.get(g, [g])),
             ri_id=lambda x: x["riId"],
             ri_type=lambda x: x["riType"],
-            # regulator_gene=lambda x: x["regulatorName"],
         )
+        .explode("regulator_gene")  # expand complex names to constituent genes
         .explode("target_genes")  # Create one row per target gene
         .rename(columns={"target_genes": "target_gene"})
         .assign(
@@ -269,4 +295,3 @@ def load_kegg_pathways(path: str = PATH_TO_KEGG):
     df["pathway1"] = df["pathways"].apply(first_pathway)
     df["target_gene"] = df["query_gene"].str.lower()
     return df
-

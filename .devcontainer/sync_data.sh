@@ -28,6 +28,7 @@ DATASETS=(
     260309_lce75_genomescale_ezrdm_glu_preprocessed
     de122_lce75
     Rapp_2026
+    05142026_metabolome
     # Eaton_2025
 )
 

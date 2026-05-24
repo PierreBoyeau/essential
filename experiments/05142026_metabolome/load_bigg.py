@@ -1,8 +1,8 @@
 """
-iJO1366 BiGG model loaders.
+iML1515 BiGG model loaders.
 
-Model: /workspace/experiments/05142026_metabolome/iJO1366.json
-  1805 metabolites  |  2583 reactions  |  1367 genes
+Model: /workspace/experiments/05142026_metabolome/iML1515.json
+  1877 metabolites  |  2712 reactions  |  1516 genes
 
 Design notes
 ------------
@@ -16,7 +16,7 @@ bigg_reaction_df  ("edge" table)
 
 bigg_gene_df
     Index = gene *name* (e.g. 'arcA').  b-number is a column.
-    Gene names are unique in iJO1366 so this index is safe.
+    Gene names are unique in iML1515 so this index is safe.
 
 bigg_gene_reaction_df  (long format)
     One row per (gene, reaction) association, parsed from gene_reaction_rule.
@@ -40,7 +40,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-MODEL_PATH = Path(__file__).parent / "iJO1366.json"
+MODEL_PATH = Path(__file__).parent / "iML1515.json"
 
 
 def _load_raw() -> dict:
