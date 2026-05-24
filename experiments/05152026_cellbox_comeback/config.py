@@ -42,7 +42,7 @@ def _base_config():
     config.split = config_dict.ConfigDict()
     _splits = "/workspace/experiments/05152026_cellbox_comeback/splits"
     config.split.train_targets_path = f"{_splits}/tf_train_0.txt"
-    config.split.train_extra_targets_path = None
+    config.split.train_extra_targets_path = config_dict.placeholder(str)
     config.split.test_targets_path = f"{_splits}/tf_test_0.txt"
 
     # --- per-model configs ---

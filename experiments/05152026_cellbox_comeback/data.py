@@ -91,9 +91,10 @@ def prepare_data(config):
         paths.append(config.split.train_extra_targets_path)
     train_targets = _read_genes(paths)
     train_targets.add(config.control_key.lower())
+    test_targets = _read_genes(config.split.test_targets_path)
     pert = adata.obs[config.perturbation_col].str.lower()
     adata_train = adata[pert.isin(train_targets)].copy()
-    adata_test = adata[~pert.isin(train_targets)].copy()
+    adata_test = adata[pert.isin(test_targets)].copy()
     adata_control = adata[pert == config.control_key.lower()].copy()
 
     var_names_set = set(adata.var_names)
