@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+
+import flax.serialization
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -6,28 +10,10 @@ import pandas as pd
 import scanpy as sc
 from flax.training import train_state
 from scipy.sparse import issparse
-from scipy.special import expit
 from tqdm import tqdm
 
-from .cellbox_metabolite import CellBoxMetabolite
 from .cellbox_steady_state import CellBoxSteadyState
 from .metrics import profile_metrics
-
-
-def summarize_saturation(args, threshold: float = 4.0) -> dict:
-    """Summary stats of sigmoid arguments (e.g. from ``get_saturation_args``).
-
-    ``frac_saturated`` is the share of ``|arg| > threshold`` (σ' ≲ 0.018 at 4);
-    ``mean_sigmoid_grad`` is the mean σ'(arg), i.e. local responsiveness.
-    """
-    args = np.asarray(args)
-    g = expit(args)
-    return {
-        "mean_abs_arg": float(np.abs(args).mean()),
-        "median_abs_arg": float(np.median(np.abs(args))),
-        "frac_saturated": float((np.abs(args) > threshold).mean()),
-        "mean_sigmoid_grad": float((g * (1.0 - g)).mean()),
-    }
 
 
 class CellBoxEstimator:
@@ -48,11 +34,6 @@ class CellBoxEstimator:
         using per-gene control-cell statistics (centers the unperturbed state
         near argument 0, keeping the sigmoid in its responsive region). The
         model output stays on the raw data scale.
-    metabolite_key:
-        Optional ``adata.obsm`` key holding a per-cell metabolite LFC vector. When
-        set, a :class:`CellBoxMetabolite` model is used and the per-regulator gate
-        ``g(M) = 1 + h(M)`` modulates the TF term. When ``None`` (default) the plain
-        :class:`CellBoxSteadyState` is used and behavior is unchanged.
     """
 
     def __init__(
@@ -62,13 +43,11 @@ class CellBoxEstimator:
         perturbation_col: str = "consensus_target",
         control_key: str = "nontargeting",
         standardize_inputs: bool = False,
-        metabolite_key: str | None = None,
     ):
         self.adata = adata.copy()
         self.perturbation_col = perturbation_col
         self.control_key = control_key
         self.standardize_inputs = standardize_inputs
-        self.metabolite_key = metabolite_key
 
         self._prepare_data()
 
@@ -76,25 +55,14 @@ class CellBoxEstimator:
         epsilon_init = 2.0 * control_mean
         x_mean, x_std = (control_mean, control_std) if standardize_inputs else (None, None)
 
-        if metabolite_key is not None:
-            self.model = CellBoxMetabolite(
-                n_obs=self.n_obs,
-                n_genes=self.n_genes,
-                n_metabolites=self.n_metabolites,
-                Amask=Amask,
-                x_mean=x_mean,
-                x_std=x_std,
-                epsilon_init=epsilon_init,
-            )
-        else:
-            self.model = CellBoxSteadyState(
-                n_obs=self.n_obs,
-                n_genes=self.n_genes,
-                Amask=Amask,
-                x_mean=x_mean,
-                x_std=x_std,
-                epsilon_init=epsilon_init,
-            )
+        self.model = CellBoxSteadyState(
+            n_obs=self.n_obs,
+            n_genes=self.n_genes,
+            Amask=Amask,
+            x_mean=x_mean,
+            x_std=x_std,
+            epsilon_init=epsilon_init,
+        )
         self.state = None
         self.epoch_history_df = None
         self.train_indices = None
@@ -119,12 +87,6 @@ class CellBoxEstimator:
         if issparse(X):
             X = X.toarray()
         self.n_obs, self.n_genes = X.shape
-        if self.metabolite_key is not None:
-            M = np.asarray(self.adata.obsm[self.metabolite_key], dtype=np.float32)
-            self.n_metabolites = M.shape[1]
-            self.m_ = jnp.array(M)
-        else:
-            self.n_metabolites = 0
         self.x_, self.u_ = self._adata_to_arrays(self.adata)
 
     def _compute_predictor_stats(self) -> tuple[jnp.ndarray, jnp.ndarray]:
@@ -167,8 +129,6 @@ class CellBoxEstimator:
             unique_perts = unique_perts[perm]
             n_train_perts = int(len(unique_perts) * train_size)
             val_perts = unique_perts[n_train_perts:]
-            # Optionally cap the number of held-out validation perturbations;
-            # the surplus is returned to the training pool.
             if max_val_perturbations is not None and len(val_perts) > max_val_perturbations:
                 val_perts = val_perts[:max_val_perturbations]
             train_perts = set(unique_perts) - set(val_perts)
@@ -179,17 +139,69 @@ class CellBoxEstimator:
         print(f"Split: {len(self.train_indices)} train, {len(self.val_indices)} val")
 
     def get_dataloader(self, indices, batch_size: int, shuffle_key=None):
-        """Yield batches of (xt, u[, m]) for the given index set."""
+        """Yield batches of (xt, u) for the given index set."""
         n = len(indices)
         if shuffle_key is not None:
             indices = jax.random.permutation(shuffle_key, indices)
 
         for start in range(0, n - batch_size + 1, batch_size):
             idx = indices[start : start + batch_size]
-            batch = {"xt": self.x_[idx], "u": self.u_[idx]}
-            if self.metabolite_key is not None:
-                batch["m"] = self.m_[idx]
-            yield batch
+            yield {"xt": self.x_[idx], "u": self.u_[idx]}
+
+    def get_dataloader_rollout(self, indices, batch_size: int, shuffle_key=None):
+        """Yield (x0_control, x_gt, u) batches for rollout training.
+
+        x0 is a randomly sampled control cell used as the ODE starting point;
+        xt holds the observed perturbed expression (the target). Control cells
+        are excluded from the target pool — they generate trivial u=0 examples
+        that dominate the gradient without teaching perturbation dynamics.
+        """
+        perts = np.asarray(self.adata.obs[self.perturbation_col])
+        ctrl_idx = np.where(perts == self.control_key)[0]
+
+        indices = np.asarray(indices)
+        indices = indices[~np.isin(indices, ctrl_idx)]
+
+        n = len(indices)
+        if shuffle_key is not None:
+            shuffle_key, ctrl_key = jax.random.split(shuffle_key)
+            indices = np.asarray(jax.random.permutation(shuffle_key, indices))
+            rng = np.random.default_rng(int(ctrl_key[0]) & 0x7FFFFFFF)
+        else:
+            rng = np.random.default_rng(0)
+
+        for start in range(0, n - batch_size + 1, batch_size):
+            idx = indices[start : start + batch_size]
+            x0 = self.x_[rng.choice(ctrl_idx, size=len(idx), replace=True)]
+            yield {"x0": x0, "xt": self.x_[idx], "u": self.u_[idx]}
+
+    def _make_rollout_train_step(self, n_steps: int):
+        """Return a JIT-compiled rollout train step with n_steps baked in."""
+        model = self.model
+
+        def _predict_batch(params, batch):
+            return jax.vmap(
+                lambda x0, u: model.apply(
+                    {"params": params},
+                    x0,
+                    u,
+                    method=model.predict_steady_state,
+                    n_steps=n_steps,
+                )
+            )(batch["x0"], batch["u"])
+
+        @jax.jit
+        def step(state, batch):
+            def loss_fn(params):
+                x_pred = _predict_batch(params, batch)
+                mask = 1.0 - batch["u"]
+                loss = jnp.mean(jnp.sum(((x_pred - batch["xt"]) * mask) ** 2, axis=1))
+                return loss, {"loss": loss, "reco_loss": loss}
+
+            (_, out), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
+            return state.apply_gradients(grads=grads), out
+
+        return step
 
     @staticmethod
     @jax.jit
@@ -223,6 +235,8 @@ class CellBoxEstimator:
         validate_every_n_epochs: int = 0,
         n_val_control: int = 64,
         n_val_steps: int = 100,
+        train_mode: str = "reconstruction",
+        n_train_steps: int = 100,
     ):
         key = self._random_key
         self._split_train_val(
@@ -242,6 +256,17 @@ class CellBoxEstimator:
 
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=tx)
 
+        if train_mode == "reconstruction":
+            _step = self._train_step
+            _loader = self.get_dataloader
+        elif train_mode == "rollout":
+            _step = self._make_rollout_train_step(n_train_steps)
+            _loader = self.get_dataloader_rollout
+        else:
+            raise ValueError(
+                f"train_mode must be 'reconstruction' or 'rollout', got {train_mode!r}"
+            )
+
         train_history, val_history = [], []
         best_metric = -float("inf") if early_stopping_mode == "max" else float("inf")
         best_epoch = 0
@@ -250,17 +275,15 @@ class CellBoxEstimator:
         for epoch in pbar:
             key, train_key, val_key = jax.random.split(key, 3)
 
-            # Training epoch
             train_outs = []
-            for batch in self.get_dataloader(self.train_indices, batch_size, train_key):
-                self.state, out = self._train_step(self.state, batch)
+            for batch in _loader(self.train_indices, batch_size, train_key):
+                self.state, out = _step(self.state, batch)
                 train_outs.append(out)
 
             avg_train = {
                 k: float(jnp.mean(jnp.stack([o[k] for o in train_outs]))) for k in train_outs[0]
             }
 
-            # Validation epoch
             val_outs = []
             for batch in self.get_dataloader(
                 self.val_indices, min(batch_size, len(self.val_indices)), val_key
@@ -274,12 +297,15 @@ class CellBoxEstimator:
             else:
                 avg_val = dict(avg_train)
 
-            # Periodic multi-step validation: the true downstream metric
-            # (fixed-point rollout from control on held-out perturbations).
             if validate_every_n_epochs > 0 and epoch % validate_every_n_epochs == 0:
-                avg_val.update(
-                    self.validate_perturbations(n_control=n_val_control, n_steps=n_val_steps)
+                pert_metrics = self.validate_perturbations(
+                    n_control=n_val_control, n_steps=n_val_steps
                 )
+                avg_val.update(pert_metrics)
+                if early_stopping_metric in pert_metrics:
+                    pbar.write(
+                        f"[epoch {epoch}] {early_stopping_metric} = {pert_metrics[early_stopping_metric]:.4f}"
+                    )
 
             train_history.append(avg_train)
             val_history.append(avg_val)
@@ -311,30 +337,13 @@ class CellBoxEstimator:
                 for t, v_ in zip(train_history, val_history)
             ]
         )
-        self._cleanup_after_fit()
-
-    def _cleanup_after_fit(self):
         del self.x_, self.u_
-        if self.metabolite_key is not None:
-            del self.m_
-
-    def _metabolite_for_perturbation(self, perturbation: str) -> jnp.ndarray:
-        """Mean metabolite LFC vector for cells belonging to ``perturbation``."""
-        obs = self.adata.obs[self.perturbation_col]
-        M = np.asarray(self.adata.obsm[self.metabolite_key], dtype=np.float32)
-        rows = M[np.asarray(obs == perturbation)]
-        if rows.shape[0] == 0:
-            raise ValueError(
-                f"No cells found for perturbation '{perturbation}' in obsm['{self.metabolite_key}']"
-            )
-        return jnp.array(rows.mean(0))
 
     def predict(
         self,
         adata: sc.AnnData,
         perturbation: str | None = None,
         perturbation_idx: int | None = None,
-        m: jnp.ndarray | None = None,
         batch_size: int = 128,
         n_steps: int = 100,
     ):
@@ -349,11 +358,6 @@ class CellBoxEstimator:
             Gene name to knock out. Exactly one of perturbation / perturbation_idx must be given.
         perturbation_idx:
             Integer index into var_names. Exactly one of perturbation / perturbation_idx must be given.
-        m:
-            Metabolite LFC vector for the condition, shape ``(n_metabolites,)``. Required
-            when ``metabolite_key`` was set and ``perturbation`` is not found in training
-            adata obs (e.g. external conditions). When ``perturbation`` is known, the
-            mean metabolite vector for that condition is looked up automatically.
         """
         if self.state is None:
             raise RuntimeError("Call .fit() before .predict()")
@@ -370,94 +374,20 @@ class CellBoxEstimator:
 
         u = jnp.zeros(self.n_genes, dtype=jnp.float32).at[perturbation_idx].set(1.0)
 
-        if self.metabolite_key is not None:
-            if m is None:
-                m = self._metabolite_for_perturbation(perturbation)
-            predict_fn = jax.vmap(
-                lambda y, u, m: self.model.apply(
-                    {"params": self.state.params},
-                    y,
-                    u,
-                    m,
-                    method=self.model.predict_steady_state,
-                    n_steps=n_steps,
-                ),
-                in_axes=(0, None, None),
-            )
-            preds = []
-            for i in range(0, x_.shape[0], batch_size):
-                preds.append(np.asarray(predict_fn(x_[i : i + batch_size], u, m)))
-        else:
-            predict_fn = jax.vmap(
-                lambda y, u: self.model.apply(
-                    {"params": self.state.params},
-                    y,
-                    u,
-                    method=self.model.predict_steady_state,
-                    n_steps=n_steps,
-                ),
-                in_axes=(0, None),
-            )
-            preds = []
-            for i in range(0, x_.shape[0], batch_size):
-                preds.append(np.asarray(predict_fn(x_[i : i + batch_size], u)))
+        predict_fn = jax.vmap(
+            lambda y, u: self.model.apply(
+                {"params": self.state.params},
+                y,
+                u,
+                method=self.model.predict_steady_state,
+                n_steps=n_steps,
+            ),
+            in_axes=(0, None),
+        )
+        preds = []
+        for i in range(0, x_.shape[0], batch_size):
+            preds.append(np.asarray(predict_fn(x_[i : i + batch_size], u)))
         return np.concatenate(preds, axis=0)
-
-    def get_saturation_args(
-        self,
-        adata: sc.AnnData,
-        perturbation: str | None = None,
-        perturbation_idx: int | None = None,
-        m: jnp.ndarray | None = None,
-        batch_size: int = 128,
-    ):
-        """Sigmoid arguments A·(g(M)⊙ỹ) − p·u + b for each cell in a query adata (cf. predict).
-
-        Returns an (n_cells, n_genes) array; large |arg| means the gene sits in a
-        flat tail of the sigmoid (saturated). This is a single forward step from
-        the cells' own expression, not the iterated steady state. With no
-        perturbation given, the un-knocked-out (u=0) arguments are returned.
-        Pass the result to ``summarize_saturation`` for summary stats.
-        """
-        if self.state is None:
-            raise RuntimeError("Call .fit() before .get_saturation_args()")
-        if perturbation is not None and perturbation_idx is not None:
-            raise ValueError("Provide at most one of perturbation or perturbation_idx")
-        if perturbation is not None:
-            perturbation_idx = self.adata.var_names.get_loc(perturbation)
-
-        u = jnp.zeros(self.n_genes, dtype=jnp.float32)
-        if perturbation_idx is not None:
-            u = u.at[perturbation_idx].set(1.0)
-
-        X = adata.X
-        if issparse(X):
-            X = X.toarray()
-        x_ = jnp.array(X, dtype=jnp.float32)
-
-        if self.metabolite_key is not None:
-            if m is None and perturbation is not None:
-                m = self._metabolite_for_perturbation(perturbation)
-            arg_fn = jax.vmap(
-                lambda y, u, m: self.model.apply(
-                    {"params": self.state.params}, y, u, m, method=self.model.preactivation
-                ),
-                in_axes=(0, None, None),
-            )
-            args = []
-            for i in range(0, x_.shape[0], batch_size):
-                args.append(np.asarray(arg_fn(x_[i : i + batch_size], u, m)))
-        else:
-            arg_fn = jax.vmap(
-                lambda y, u: self.model.apply(
-                    {"params": self.state.params}, y, u, method=self.model.preactivation
-                ),
-                in_axes=(0, None),
-            )
-            args = []
-            for i in range(0, x_.shape[0], batch_size):
-                args.append(np.asarray(arg_fn(x_[i : i + batch_size], u)))
-        return np.concatenate(args, axis=0)
 
     def get_val_perturbations(self) -> list[str]:
         """Return gene names of perturbations assigned to the validation split."""
@@ -470,18 +400,7 @@ class CellBoxEstimator:
     def validate_perturbations(
         self, n_control: int = 64, n_steps: int = 100, seed: int = 0
     ) -> dict:
-        """Mean ``profile_metrics`` over held-out (val) perturbations.
-
-        This is the true downstream task: for each val perturbation, the model's
-        steady state is rolled out from a control-cell subsample, reduced to a
-        predicted mean profile, and scored against the observed perturbed mean
-        (control mean is the LFC reference). Returns the mean of each metric
-        across val perturbations (NaNs ignored), or ``{}`` when there are no val
-        perturbations / no control cells.
-
-        Far costlier than a reco-loss epoch, so meant to run every few epochs on
-        a control subsample (``n_control``).
-        """
+        """Mean ``profile_metrics`` over held-out (val) perturbations."""
         if self.state is None:
             raise RuntimeError("Call .fit() before .validate_perturbations()")
         val_perts = self.get_val_perturbations()
@@ -505,12 +424,7 @@ class CellBoxEstimator:
         per_pert = []
         for pert in val_perts:
             mu_gt = X[np.asarray(obs == pert)].mean(0)
-            m_pert = (
-                self._metabolite_for_perturbation(pert) if self.metabolite_key is not None else None
-            )
-            mu_pred = self.predict(
-                adata_control, perturbation=pert, m=m_pert, n_steps=n_steps
-            ).mean(0)
+            mu_pred = self.predict(adata_control, perturbation=pert, n_steps=n_steps).mean(0)
             per_pert.append(profile_metrics(mu_gt, mu_pred, mu_control))
 
         return {k: float(np.nanmean([m[k] for m in per_pert])) for k in per_pert[0]}
@@ -521,61 +435,3 @@ class CellBoxEstimator:
             raise RuntimeError("Call .fit() before .get_Amat()")
         A = self.model.apply({"params": self.state.params}, method=self.model.get_Amat)
         return pd.DataFrame(A, index=self.adata.var_names, columns=self.adata.var_names)
-
-    def get_interaction_matrix(
-        self, return_square: bool = True, delta: float | None = None
-    ) -> pd.DataFrame:
-        """Return the interaction matrix, optionally in long format with filtering.
-
-        Parameters
-        ----------
-        return_square:
-            If True, return a (G×G) DataFrame. Otherwise return long-format rows.
-        delta:
-            When return_square=False, only keep pairs with |score| > delta.
-        """
-        Amat_df = self.get_Amat()
-        if return_square:
-            return Amat_df
-
-        long = (
-            Amat_df.unstack()
-            .rename("signed_score")
-            .reset_index()
-            .rename(columns={"level_0": "regulator_gene", "level_1": "target_gene"})
-            .assign(
-                target_gene=lambda d: d["target_gene"].str.lower(),
-                regulator_gene=lambda d: d["regulator_gene"].str.lower(),
-                score=lambda d: d["signed_score"].abs(),
-            )
-        )
-        if delta is not None:
-            long = long[long["score"] > delta].copy()
-        return long
-
-    def get_results(
-        self, delta: float, ref_db: pd.DataFrame, transpose_amat: bool = False
-    ) -> pd.DataFrame:
-        """Merge interaction predictions with a reference database for evaluation.
-
-        Parameters
-        ----------
-        delta:
-            Score threshold; pairs above this are predicted positives.
-        ref_db:
-            DataFrame with columns target_gene, regulator_gene, is_evidence.
-        transpose_amat:
-            Swap regulator/target labels before merging (useful if orientation is ambiguous).
-        """
-        df = self.get_interaction_matrix(return_square=False, delta=None)
-        df["decision"] = df["score"] > delta
-
-        if transpose_amat:
-            df = df.rename(
-                columns={"target_gene": "regulator_gene", "regulator_gene": "target_gene"}
-            )
-
-        return df.merge(ref_db, on=["target_gene", "regulator_gene"], how="left").assign(
-            is_evidence=lambda d: d["is_evidence"].fillna(False),
-            is_tp=lambda d: (d["is_evidence"] & d["decision"]).astype(int),
-        )

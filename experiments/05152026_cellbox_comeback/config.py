@@ -30,7 +30,7 @@ def _base_config():
     config.experiment_subset = "lce75"
     config.seed = 0
 
-    config.output_path = "/workspace/experiments/05152026_cellbox_comeback/metrics.csv"
+    config.output_path = "/workspace/experiments/05152026_cellbox_comeback/metrics"
 
     # --- count normalization ---
     config.normalization = config_dict.ConfigDict()
@@ -64,6 +64,9 @@ def _base_config():
     config.models.cellbox.training.gradient_clip_norm = None
     config.models.cellbox.training.split_by_perturbation = True
     config.models.cellbox.training.max_val_perturbations = config_dict.placeholder(int)
+    config.models.cellbox.training.n_val_steps = 5
+    config.models.cellbox.training.train_mode = "reconstruction"
+    config.models.cellbox.training.n_train_steps = 5
 
     config.models.mean = config_dict.ConfigDict()
 

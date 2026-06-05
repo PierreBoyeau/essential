@@ -83,11 +83,9 @@ class CellBoxSteadyState(nn.Module):
         args = jax.vmap(self.preactivation)(xt, u)
         x_pred = self.get_epsilon() * nn.sigmoid(args)
 
-        # Only supervise non-KO genes
         mask = 1.0 - u
         deltas = (x_pred - xt) * mask
         reco_loss = jnp.mean(jnp.sum(deltas**2, axis=1))
 
-        # Saturation monitor: fraction of supervised genes deep in a sigmoid tail.
         frac_saturated = jnp.sum((jnp.abs(args) > 4.0) * mask) / jnp.sum(mask)
         return {"loss": reco_loss, "reco_loss": reco_loss, "frac_saturated": frac_saturated}
