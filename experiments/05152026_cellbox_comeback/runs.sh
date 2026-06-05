@@ -40,9 +40,9 @@ python /workspace/experiments/05152026_cellbox_comeback/run_prediction.py --conf
     --config.model_name=cellbox \
     --config.tag=cellbox_rollout_${nsteps}steps \
     --config.output_path="${OUT}/cellbox_rollout_${nsteps}steps" \
-    --config.models.cellbox.training.train_mode=rollout \
-    --config.models.cellbox.training.n_train_steps=${nsteps} \
-    --config.models.cellbox.training.n_val_steps=${nsteps} \
+    --config.models.cellbox.train_mode=rollout \
+    --config.models.cellbox.n_rollout_train=${nsteps} \
+    --config.models.cellbox.n_rollout_val=${nsteps} \
     --config.models.cellbox.training.early_stopping_patience=10 \
     # --config.models.cellbox.training.early_stopping_metric="loss" \
     # --config.models.cellbox.training.early_stopping_mode="min"
@@ -52,9 +52,9 @@ python /workspace/experiments/05152026_cellbox_comeback/run_prediction.py --conf
     --config.tag=cellbox_causal_rollout_${nsteps}steps \
     --config.models.cellbox.filter_regulators=true \
     --config.output_path="${OUT}/cellbox_causal_rollout_${nsteps}steps" \
-    --config.models.cellbox.training.train_mode=rollout \
-    --config.models.cellbox.training.n_train_steps=${nsteps} \
-    --config.models.cellbox.training.n_val_steps=${nsteps} \
+    --config.models.cellbox.train_mode=rollout \
+    --config.models.cellbox.n_rollout_train=${nsteps} \
+    --config.models.cellbox.n_rollout_val=${nsteps} \
     --config.models.cellbox.training.validate_every_n_epochs=0 \
     --config.models.cellbox.training.early_stopping_patience=10 \
     # --config.models.cellbox.training.early_stopping_metric="loss" \
@@ -66,9 +66,9 @@ python /workspace/experiments/05152026_cellbox_comeback/run_prediction.py --conf
     --config.split.train_extra_targets_path="${SPLITS}/non_tfs.txt" \
     --config.models.cellbox.training.max_val_perturbations=400 \
     --config.output_path="${OUT}/cellbox_rollout_full_${nsteps}steps" \
-    --config.models.cellbox.training.train_mode=rollout \
-    --config.models.cellbox.training.n_train_steps=${nsteps} \
-    --config.models.cellbox.training.n_val_steps=${nsteps} \
+    --config.models.cellbox.train_mode=rollout \
+    --config.models.cellbox.n_rollout_train=${nsteps} \
+    --config.models.cellbox.n_rollout_val=${nsteps} \
     --config.models.cellbox.training.early_stopping_patience=10 \
     # --config.models.cellbox.training.early_stopping_metric="loss" \
     # --config.models.cellbox.training.early_stopping_mode="min"
@@ -80,9 +80,9 @@ python /workspace/experiments/05152026_cellbox_comeback/run_prediction.py --conf
     --config.split.train_extra_targets_path="${SPLITS}/non_tfs.txt" \
     --config.models.cellbox.training.max_val_perturbations=400 \
     --config.output_path="${OUT}/cellbox_causal_rollout_full_${nsteps}steps" \
-    --config.models.cellbox.training.train_mode=rollout \
-    --config.models.cellbox.training.n_train_steps=${nsteps} \
-    --config.models.cellbox.training.n_val_steps=${nsteps} \
+    --config.models.cellbox.train_mode=rollout \
+    --config.models.cellbox.n_rollout_train=${nsteps} \
+    --config.models.cellbox.n_rollout_val=${nsteps} \
     --config.models.cellbox.training.validate_every_n_epochs=0 \
     --config.models.cellbox.training.early_stopping_patience=10 \
     # --config.models.cellbox.training.early_stopping_metric="loss" \
@@ -94,3 +94,17 @@ python /workspace/experiments/05152026_cellbox_comeback/run_prediction.py --conf
     --config.tag=mean \
     --config.output_path="${OUT}/mean"
 
+
+
+nsteps=10
+python /workspace/experiments/05152026_cellbox_comeback/run_prediction.py --config=config.py \
+    --config.model_name=cellbox \
+    --config.tag=cellbox_causal_rollout_${nsteps}steps \
+    --config.models.cellbox.filter_regulators=true \
+    --config.output_path="${OUT}/cellbox_causal_rollout_${nsteps}steps" \
+    --config.models.cellbox.train_mode=rollout \
+    --config.models.cellbox.n_rollout_train=${nsteps} \
+    --config.models.cellbox.n_rollout_val=${nsteps} \
+    --config.models.cellbox.training.validate_every_n_epochs=0 \
+    --config.models.cellbox.training.early_stopping_patience=10 \
+    --config.models.cellbox.training.n_epochs=5

@@ -51,6 +51,10 @@ def _base_config():
     config.models.cellbox = config_dict.ConfigDict()
     config.models.cellbox.filter_regulators = False
     config.models.cellbox.standardize_inputs = True
+    config.models.cellbox.train_mode = "reconstruction"
+    config.models.cellbox.n_rollout_train = 5
+    config.models.cellbox.n_rollout_val = 5
+    config.models.cellbox.n_val_control = 64
     config.models.cellbox.training = config_dict.ConfigDict()
     config.models.cellbox.training.learning_rate = 1e-3
     config.models.cellbox.training.n_epochs = 10000
@@ -64,9 +68,6 @@ def _base_config():
     config.models.cellbox.training.gradient_clip_norm = None
     config.models.cellbox.training.split_by_perturbation = True
     config.models.cellbox.training.max_val_perturbations = config_dict.placeholder(int)
-    config.models.cellbox.training.n_val_steps = 5
-    config.models.cellbox.training.train_mode = "reconstruction"
-    config.models.cellbox.training.n_train_steps = 5
 
     config.models.mean = config_dict.ConfigDict()
 

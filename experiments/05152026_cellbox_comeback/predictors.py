@@ -66,14 +66,18 @@ class CellBoxPredictor(Predictor):
             perturbation_col=config.perturbation_col,
             control_key=config.control_key,
             standardize_inputs=mcfg.standardize_inputs,
+            train_mode=mcfg.train_mode,
+            n_rollout_train=mcfg.n_rollout_train,
+            n_rollout_val=mcfg.n_rollout_val,
+            n_val_control=mcfg.n_val_control,
         )
-        self._train_kwargs = mcfg.training.to_dict()
+        self._fit_kwargs = mcfg.training.to_dict()
 
     def fit(self):
-        self.estimator.fit(**self._train_kwargs)
+        self.estimator.fit(**self._fit_kwargs)
 
     def predict(self, adata_control: sc.AnnData, target: str) -> np.ndarray:
-        return np.asarray(self.estimator.predict(adata_control, target))
+        return np.asarray(self.estimator.predict(adata_control, perturbation=target))
 
 
 @register("mean")

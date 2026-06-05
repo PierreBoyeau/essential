@@ -2,13 +2,14 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 from flax.linen.initializers import glorot_normal, zeros
+from numpyro.distributions import NegativeBinomial2
 
 
 def _const_init(value):
     return lambda key, shape, dtype=jnp.float32: jnp.asarray(value, dtype=dtype)
 
 
-class CellBoxSteadyState(nn.Module):
+class CellBoxSteadyStateNB(nn.Module):
     n_genes: int
     n_obs: int
     lambda_prior: float = 1.0
@@ -32,6 +33,16 @@ class CellBoxSteadyState(nn.Module):
         self.x_mean_ = self.param("x_mean_", _const_init(_x_mean), (G,))
         self.x_std_ = self.param("x_std_", _const_init(_x_std), (G,))
 
+        self.overdispersion_ = self.param("overdispersion_", zeros, (G,))
+        self.library_network = nn.Sequential(
+            [
+                nn.Dense(128, kernel_init=glorot_normal(), bias_init=zeros),
+                nn.softplus,
+                nn.Dense(1, kernel_init=glorot_normal(), bias_init=zeros),
+                nn.softplus,
+            ],
+        )
+
     def init_params(self, key):
         dummy_xt = jnp.zeros((4, self.n_genes))
         dummy_u = jnp.zeros((4, self.n_genes))
@@ -42,7 +53,9 @@ class CellBoxSteadyState(nn.Module):
         return A * jax.lax.stop_gradient(self.Amask_)
 
     def normalize_predictor(self, y):
-        return (y - jax.lax.stop_gradient(self.x_mean_)) / jax.lax.stop_gradient(self.x_std_)
+        x = jnp.log1p(y)
+        x = x - jnp.log1p(jax.lax.stop_gradient(self.x_mean_))
+        return x / jax.lax.stop_gradient(self.x_std_)
 
     def preactivation(self, y, u):
         A = self.get_Amat()
@@ -50,18 +63,27 @@ class CellBoxSteadyState(nn.Module):
         return jnp.dot(A, self.normalize_predictor(y)) - p * u + self.b_
 
     def predict(self, y, u):
-        return self.epsilon_ * nn.sigmoid(self.preactivation(y, u))
+        out = self.epsilon_ * nn.sigmoid(self.preactivation(y, u))
+        return out
 
     def predict_steady_state(self, y, u, n_steps=100):
-        return jax.lax.fori_loop(0, n_steps, lambda _, val: self.predict(val, u), y)
+        out = jax.lax.fori_loop(0, n_steps, lambda _, val: self.predict(val, u), y)
+        return jnp.log(1 + 1e4 * out)
 
     def __call__(self, xt: jnp.ndarray, u: jnp.ndarray, x0: jnp.ndarray | None = None) -> dict:
         args = jax.vmap(self.preactivation)(xt, u)
         x_pred = self.epsilon_ * nn.sigmoid(args)
 
+        obs_lib = xt.sum(axis=-1, keepdims=True)
+        xconcat = jnp.concatenate([obs_lib, self.normalize_predictor(x_pred)], axis=-1)
+        lib_size = self.library_network(xconcat)
+
+        mean = x_pred * lib_size
+        overdispersion = jnp.exp(self.overdispersion_)
+        lkl = NegativeBinomial2(mean=mean, concentration=overdispersion).log_prob(xt)
         mask = 1.0 - u
-        deltas = (x_pred - xt) * mask
-        reco_loss = jnp.mean(jnp.sum(deltas**2, axis=1))
+
+        reco_loss = -jnp.mean(lkl * mask)
 
         frac_saturated = jnp.sum((jnp.abs(args) > 4.0) * mask) / jnp.sum(mask)
         return {"loss": reco_loss, "reco_loss": reco_loss, "frac_saturated": frac_saturated}
