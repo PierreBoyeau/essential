@@ -4,7 +4,7 @@ sys.path.insert(0, "/workspace/src")
 from cellbox.config import get_config as _base_config
 
 EXP = "/workspace/experiments/06052026_cellbox_noise"
-TAG = "cellbox_causal_rollout_10steps"
+TAG = "baseline"
 
 
 def get_config():
@@ -16,13 +16,16 @@ def get_config():
     config.control_key = "nontargeting"
     config.filter_regulators = True
 
-    config.adata_train = f"{EXP}/data/adata_tf_train_0.h5ad"
+    config.adata_train = f"{EXP}/data/adata_train_0.h5ad"
     config.adata_test = f"{EXP}/data/adata_tf_test_0.h5ad"
     config.adata_control = f"{EXP}/data/adata_control.h5ad"
+    config.amask_path = f"{EXP}/data/amask.npy"
 
-    config.model.standardize_inputs = True
+    config.model.model_type = "gaussian"
+    config.model.layer = "log1p"
     config.model.train_mode = "rollout"
     config.model.n_rollout_train = 10
+    config.model.layer_eval = "log1p"
     config.model.n_rollout_val = 10
     config.model.n_val_control = 64
 
@@ -38,6 +41,7 @@ def get_config():
     config.training.split_by_perturbation = True
     config.training.gradient_clip_norm = None
     config.training.max_val_perturbations = None
+    config.training.tensorboard_log_dir = f"{EXP}/results/{TAG}/tensorboard"
 
     config.outputs.checkpoint_dir = f"{EXP}/results/{TAG}/checkpoint"
     config.outputs.adata_pred = f"{EXP}/results/{TAG}/adata_pred.h5ad"

@@ -6,12 +6,7 @@ from cellbox import CellBoxEstimator
 
 
 def run(config):
-    adata_control, _ = CellBoxEstimator.prepare_data(
-        adata_path=config.adata_control,
-        min_library_size=config.prepare_data.min_library_size,
-        perturbation_col=config.perturbation_col,
-        normalization=config.prepare_data.normalization,
-    )
+    adata_control = sc.read_h5ad(config.adata_control)
     adata_test = sc.read_h5ad(config.adata_test)
     model = CellBoxEstimator.load(config.outputs.checkpoint_dir)
 

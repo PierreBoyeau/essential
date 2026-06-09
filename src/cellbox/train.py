@@ -1,13 +1,12 @@
+import numpy as np
+import scanpy as sc
+
 from cellbox import CellBoxEstimator
 
 
 def run(config):
-    adata_train, amask = CellBoxEstimator.prepare_data(
-        adata_path=config.adata_train,
-        min_library_size=config.prepare_data.min_library_size,
-        perturbation_col=config.perturbation_col,
-        normalization=config.prepare_data.normalization,
-    )
+    adata_train = sc.read_h5ad(config.adata_train)
+    amask = np.load(config.amask_path) if config.filter_regulators else None
     model = CellBoxEstimator(
         perturbation_col=config.perturbation_col,
         control_key=config.control_key,
@@ -15,7 +14,7 @@ def run(config):
     )
     model.fit(
         adata_train,
-        Amask=amask if config.filter_regulators else None,
+        Amask=amask,
         **config.training.to_dict(),
     )
     model.save(config.outputs.checkpoint_dir)

@@ -26,26 +26,37 @@ def _as_dense(X):
     return X.toarray() if sparse.issparse(X) else np.asarray(X)
 
 
-def _train_mean_profile(adata_train, perturbation_col):
+def _get_layer(adata, layer=None):
+    X = adata.layers[layer] if layer else adata.X
+    return _as_dense(X)
+
+
+def _train_mean_profile(adata_train, perturbation_col, layer=None):
     profiles = []
     for t in adata_train.obs[perturbation_col].unique():
         mask = np.asarray(adata_train.obs[perturbation_col] == t)
-        profiles.append(_as_dense(adata_train[mask].X).mean(0))
+        profiles.append(_get_layer(adata_train[mask], layer).mean(0))
     return np.mean(profiles, axis=0)
 
 
 def run(config):
+    model_cfg = getattr(config, "model", None)
+    layer = getattr(model_cfg, "layer", None)
+    # layer_eval: space for ground-truth metrics; defaults to layer.
+    # For NB models (layer="raw"), set layer_eval="log1p" so GT matches
+    # the log-CP10K space that predict_steady_state returns.
+    layer_eval = getattr(model_cfg, "layer_eval", None) or layer
+
     adata_pred = sc.read_h5ad(config.outputs.adata_pred)
     adata_test = sc.read_h5ad(config.adata_test)
     adata_control = sc.read_h5ad(config.adata_control)
 
-    mu_control = _as_dense(adata_control.X).mean(0)
-    # breakpoint()
+    mu_control = _get_layer(adata_control, layer_eval).mean(0)
 
     mu_baseline = None
     if config.adata_train:
         adata_train = sc.read_h5ad(config.adata_train)
-        mu_baseline = _train_mean_profile(adata_train, config.perturbation_col)
+        mu_baseline = _train_mean_profile(adata_train, config.perturbation_col, layer_eval)
 
     perturbations = (
         adata_pred.obs[config.perturbation_col].value_counts().loc[lambda x: x >= 1].index
@@ -58,7 +69,7 @@ def run(config):
         if not mask_gt.any():
             continue
         mu_pred = _as_dense(adata_pred[mask_pred].X).mean(0)
-        mu_gt = _as_dense(adata_test[mask_gt].X).mean(0)
+        mu_gt = _get_layer(adata_test[mask_gt], layer_eval).mean(0)
         row_info = {
             "perturbation": pert,
             "n_cells_gt": int(mask_gt.sum()),

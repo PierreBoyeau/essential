@@ -10,6 +10,7 @@ import optax
 import orbax.checkpoint as ocp
 import pandas as pd
 import scanpy as sc
+from flax import traverse_util
 from flax.training import train_state
 from tqdm import tqdm
 
@@ -44,8 +45,10 @@ class BaseEstimator(ABC):
         params = self.model.init_params(jax.random.PRNGKey(0))
         return train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=tx)
 
-    def _free_data_cache(self):
-        pass
+    def _postprocessing(self):
+        if getattr(self, "_writer", None) is not None:
+            self._writer.close()
+            self._writer = None
 
     def _preprocess_indices(self, indices: np.ndarray) -> np.ndarray:
         return indices
@@ -60,6 +63,11 @@ class BaseEstimator(ABC):
                 return out["loss"], out
 
             (_, out), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
+            flat_grads = traverse_util.flatten_dict(grads, sep="/")
+            out = {
+                **out,
+                **{f"grad_norm/{k}": jnp.linalg.norm(v) for k, v in flat_grads.items()},
+            }
             return state.apply_gradients(grads=grads), out
 
         return step
@@ -156,14 +164,18 @@ class BaseEstimator(ABC):
         early_stopping_patience: int = 500,
         early_stopping_metric: str = "reco_loss",
         early_stopping_mode: str = "min",
-        log_every_n_epochs: int = 100,
+        log_every_n_epochs: int = 1,
         gradient_clip_norm: float | None = None,
         split_by_perturbation: bool = False,
         max_val_perturbations: int | None = None,
         validate_every_n_epochs: int = 0,
         checkpoint_dir: str | None = None,
         checkpoint_every_n_epochs: int = 0,
+        tensorboard_log_dir: str | None = None,
     ):
+        from torch.utils.tensorboard import SummaryWriter
+
+        self._writer = SummaryWriter(tensorboard_log_dir) if tensorboard_log_dir else None
         key = self._random_key
         self._split_train_val(
             train_size,
@@ -221,6 +233,12 @@ class BaseEstimator(ABC):
                         f"[epoch {epoch}] {early_stopping_metric}"
                         f" = {pert_metrics[early_stopping_metric]:.4f}"
                     )
+                    flat = traverse_util.flatten_dict(self.state.params, sep=".")
+                    param_strs = " | ".join(
+                        f"{k}: [{float(v.min()):.3g}, {float(v.max()):.3g}]"
+                        for k, v in flat.items()
+                    )
+                    pbar.write(f"  params: {param_strs}")
 
             train_history.append(avg_train)
             val_history.append(avg_val)
@@ -238,6 +256,11 @@ class BaseEstimator(ABC):
                     {f"train_{k}": f"{v:.2E}" for k, v in avg_train.items()}
                     | {f"val_{k}": f"{v:.2E}" for k, v in avg_val.items()}
                 )
+                if self._writer is not None:
+                    for k, v in avg_train.items():
+                        self._writer.add_scalar(f"train/{k}", v, epoch)
+                    for k, v in avg_val.items():
+                        self._writer.add_scalar(f"val/{k}", v, epoch)
 
             if checkpoint_every_n_epochs > 0 and epoch % checkpoint_every_n_epochs == 0:
                 self.save(Path(checkpoint_dir) / f"epoch_{epoch:05d}")
@@ -256,7 +279,7 @@ class BaseEstimator(ABC):
                 for t, v_ in zip(train_history, val_history)
             ]
         )
-        self._free_data_cache()
+        self._postprocessing()
 
         if checkpoint_dir is not None:
             self.save(Path(checkpoint_dir) / "final")

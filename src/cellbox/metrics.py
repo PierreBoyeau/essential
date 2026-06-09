@@ -48,14 +48,13 @@ def profile_metrics(mu_gt, mu_pred, mu_control, n_top_degs=20, mu_baseline=None)
 
     out = {
         "mu_mse": mse(mu_pred, mu_gt),
-        "mu_pearson": _safe_pearson_r2(mu_pred, mu_gt),
+        "mu_pearson_r": _safe_pearson_r(mu_pred, mu_gt),
         "lfc_mse": mse(lfc_pred, lfc_gt),
         "lfc_pearson_r": _safe_pearson_r(lfc_pred, lfc_gt),
-        "lfc_pearson": _safe_pearson_r2(lfc_pred, lfc_gt),
         "mu_mse_top_degs": mse(mu_pred[deg], mu_gt[deg]),
-        "mu_pearson_top_degs": _safe_pearson_r2(mu_pred[deg], mu_gt[deg]),
+        "mu_pearson_r_top_degs": _safe_pearson_r(mu_pred[deg], mu_gt[deg]),
         "lfc_mse_top_degs": mse(lfc_pred[deg], lfc_gt[deg]),
-        "lfc_pearson_top_degs": _safe_pearson_r2(lfc_pred[deg], lfc_gt[deg]),
+        "lfc_pearson_r_top_degs": _safe_pearson_r(lfc_pred[deg], lfc_gt[deg]),
     }
     if mu_baseline is not None:
         mu_baseline = np.asarray(mu_baseline)

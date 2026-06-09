@@ -13,19 +13,19 @@ def get_config():
     config.adata_train = ""
     config.adata_test = ""
     config.adata_control = ""
-
-    config.prepare_data = config_dict.ConfigDict()
-    config.prepare_data.min_library_size = 1e3
-    config.prepare_data.normalization = config_dict.ConfigDict()
-    config.prepare_data.normalization.method = "log1p"
-    config.prepare_data.normalization.target_sum = 1e4
+    config.amask_path = ""
 
     config.model = config_dict.ConfigDict()
+    config.model.model_type = "gaussian"
     config.model.standardize_inputs = False
     config.model.train_mode = "reconstruction"
     config.model.n_rollout_train = 100
     config.model.n_val_control = 64
     config.model.n_rollout_val = 100
+    config.model.layer = "log1p"
+    config.model.layer_eval = ""
+    config.model.reg_embed_dim = 16
+    config.model.reg_hidden_dim = 16
 
     config.training = config_dict.ConfigDict()
     config.training.learning_rate = 1e-3
@@ -40,6 +40,7 @@ def get_config():
     config.training.split_by_perturbation = False
     config.training.max_val_perturbations = None
     config.training.validate_every_n_epochs = 0
+    config.training.tensorboard_log_dir = ""
 
     config.outputs = config_dict.ConfigDict()
     config.outputs.checkpoint_dir = ""

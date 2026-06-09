@@ -8,6 +8,13 @@ def _const_init(value):
     return lambda key, shape, dtype=jnp.float32: jnp.asarray(value, dtype=dtype)
 
 
+def _scaled_glorot(scale: float):
+    def init(key, shape, dtype=jnp.float32):
+        return scale * glorot_normal()(key, shape, dtype)
+
+    return init
+
+
 class CellBoxSteadyState(nn.Module):
     n_genes: int
     n_obs: int
@@ -16,16 +23,16 @@ class CellBoxSteadyState(nn.Module):
     x_mean: jnp.ndarray | None = None
     x_std: jnp.ndarray | None = None
     epsilon_init: jnp.ndarray | None = None
+    a_scale: float = 1.0  # glorot rescaling for masked A
 
     def setup(self):
         G = self.n_genes
 
-        self.A_ = self.param("A_", glorot_normal(), (G, G))
+        _amask = self.Amask if self.Amask is not None else jnp.ones((G, G))
+        self.A_ = self.param("A_", _scaled_glorot(self.a_scale), (G, G))
         self.b_ = self.param("b_", zeros, (G,))
         _eps = self.epsilon_init if self.epsilon_init is not None else jnp.zeros(G)
         self.epsilon_ = self.param("epsilon_", _const_init(_eps), (G,))
-
-        _amask = self.Amask if self.Amask is not None else jnp.ones((G, G))
         _x_mean = self.x_mean if self.x_mean is not None else jnp.zeros(G)
         _x_std = self.x_std if self.x_std is not None else jnp.ones(G)
         self.Amask_ = self.param("Amask_", _const_init(_amask), (G, G))

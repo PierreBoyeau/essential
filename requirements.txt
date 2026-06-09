@@ -35,8 +35,11 @@ google-genai
 # ollama
 pre-commit==4.5.1
 nbstripout==0.9.1
+numpyro
 flax
 optax
+tensorboard>=2.20.0
+setuptools<71  # pkg_resources removed in 71+, tensorboard still depends on it
 
 # cudf-cu12==26.2.* 
 # snakemake
