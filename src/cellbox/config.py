@@ -17,6 +17,7 @@ def get_config():
 
     config.model = config_dict.ConfigDict()
     config.model.model_type = "gaussian"
+    config.model.mean_mode = "absolute"
     config.model.standardize_inputs = False
     config.model.train_mode = "reconstruction"
     config.model.n_rollout_train = 100

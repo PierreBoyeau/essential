@@ -232,8 +232,6 @@ Current predictive power on held-out TF knockdowns ($\mathcal{D}^{\text{test}}$,
 
 ```bash
 cd /workspace
-
-# prepare data (re-run if data/ is missing or stale)
 python experiments/06052026_cellbox_noise/prepare_data.py \
     --out_dir experiments/06052026_cellbox_noise/data
 
@@ -245,22 +243,82 @@ done
 ```
 
 
-CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/base_config.py
-CUDA_VISIBLE_DEVICES=0 python src/cellbox/train.py --config=$CONFIG
-python src/cellbox/predict.py --config=$CONFIG
+
+### Presentation slides 0612026:
+
+```
+cd /workspace
+python experiments/06052026_cellbox_noise/prepare_data.py \
+    --out_dir experiments/06052026_cellbox_noise/data
+
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/mean_baseline.py
+python src/evaluation/mean_baseline.py --config=$CONFIG
 python src/evaluation/evaluate.py --config=$CONFIG
 
-CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_model.py
-CUDA_VISIBLE_DEVICES=1 python src/cellbox/train.py --config=$CONFIG
-python src/cellbox/predict.py --config=$CONFIG
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_causal.py
+CUDA_VISIBLE_DEVICES=5 python src/cellbox/train.py --config=$CONFIG
+CUDA_VISIBLE_DEVICES=5 python src/cellbox/predict.py --config=$CONFIG
 python src/evaluation/evaluate.py --config=$CONFIG
 
-CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_model_deepset.py
-CUDA_VISIBLE_DEVICES=2 python src/cellbox/train.py --config=$CONFIG
-python src/cellbox/predict.py --config=$CONFIG
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_linear.py
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/train.py --config=$CONFIG
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/predict.py --config=$CONFIG
 python src/evaluation/evaluate.py --config=$CONFIG
 
-CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/no_rollout.py
-CUDA_VISIBLE_DEVICES=3 python src/cellbox/train.py --config=$CONFIG
-python src/cellbox/predict.py --config=$CONFIG
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/gaussian_causal.py
+CUDA_VISIBLE_DEVICES=7 python src/cellbox/train.py --config=$CONFIG
+CUDA_VISIBLE_DEVICES=7 python src/cellbox/predict.py --config=$CONFIG
 python src/evaluation/evaluate.py --config=$CONFIG
+```
+
+
+# rollouts
+
+```
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_causal_rollout.py
+CUDA_VISIBLE_DEVICES=5 python src/cellbox/train.py --config=$CONFIG
+CUDA_VISIBLE_DEVICES=5 python src/cellbox/predict.py --config=$CONFIG
+python src/evaluation/evaluate.py --config=$CONFIG
+
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_causal_ds.py
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/train.py --config=$CONFIG
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/predict.py --config=$CONFIG
+python src/evaluation/evaluate.py --config=$CONFIG
+
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_causal_residual.py
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/train.py --config=$CONFIG
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/predict.py --config=$CONFIG
+python src/evaluation/evaluate.py --config=$CONFIG
+
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_linear_residual.py
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/train.py --config=$CONFIG
+CUDA_VISIBLE_DEVICES=6 python src/cellbox/predict.py --config=$CONFIG
+python src/evaluation/evaluate.py --config=$CONFIG
+
+```
+
+
+# predictions on train data
+
+```
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_causal.py
+python src/cellbox/predict.py --config=$CONFIG \
+--config.adata_test=/workspace/experiments/06052026_cellbox_noise/data/adata_tf_train_0.h5ad \
+--config.outputs.adata_pred=/workspace/experiments/06052026_cellbox_noise/results/nb_causal/adata_pred_train.h5ad
+
+python src/evaluation/evaluate.py --config=$CONFIG \
+--config.adata_test=/workspace/experiments/06052026_cellbox_noise/data/adata_tf_train_0.h5ad \
+--config.outputs.adata_pred=/workspace/experiments/06052026_cellbox_noise/results/nb_causal/adata_pred_train.h5ad \
+--config.outputs.metrics_dir=/workspace/experiments/06052026_cellbox_noise/results/nb_causal/metrics_train
+
+
+CONFIG=/workspace/experiments/06052026_cellbox_noise/configs/nb_causal_residual.py
+python src/cellbox/predict.py --config=$CONFIG \
+--config.adata_test=/workspace/experiments/06052026_cellbox_noise/data/adata_tf_train_0.h5ad \
+--config.outputs.adata_pred=/workspace/experiments/06052026_cellbox_noise/results/nb_causal_residual/adata_pred_train.h5ad
+
+python src/evaluation/evaluate.py --config=$CONFIG \
+--config.adata_test=/workspace/experiments/06052026_cellbox_noise/data/adata_tf_train_0.h5ad \
+--config.outputs.adata_pred=/workspace/experiments/06052026_cellbox_noise/results/nb_causal_residual/adata_pred_train.h5ad \
+--config.outputs.metrics_dir=/workspace/experiments/06052026_cellbox_noise/results/nb_causal_residual/metrics_train
+```

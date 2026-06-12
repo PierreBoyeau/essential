@@ -35,6 +35,7 @@ class CellBoxEstimator(BaseEstimator):
         perturbation_col: str = "consensus_target",
         control_key: str = "nontargeting",
         model_type: str = "gaussian",
+        mean_mode: str = "absolute",
         standardize_inputs: bool = False,
         train_mode: str = "reconstruction",
         n_rollout_train: int = 100,
@@ -48,6 +49,7 @@ class CellBoxEstimator(BaseEstimator):
         self.perturbation_col = perturbation_col
         self.control_key = control_key
         self.model_type = model_type
+        self.mean_mode = mean_mode
         self.standardize_inputs = standardize_inputs
         self.train_mode = train_mode
         self.n_rollout_train = n_rollout_train
@@ -88,6 +90,7 @@ class CellBoxEstimator(BaseEstimator):
                 x_std=x_std,
                 epsilon_init=2.0 * jnp.maximum(x_mean, 1e-3),
                 a_scale=a_scale,
+                mean_mode=self.mean_mode,
             )
         elif self.model_type == "nb_ds":
             x_mean, x_std = self._compute_logcp10k_stats()
@@ -100,6 +103,7 @@ class CellBoxEstimator(BaseEstimator):
                 epsilon_init=2.0 * jnp.maximum(x_mean, 1e-3),
                 reg_embed_dim=self.reg_embed_dim,
                 reg_hidden_dim=self.reg_hidden_dim,
+                mean_mode=self.mean_mode,
             )
         elif self.model_type == "gaussian_ds":
             control_mean, control_std = self._compute_predictor_stats()
@@ -155,7 +159,9 @@ class CellBoxEstimator(BaseEstimator):
             Amask = jnp.array(amask_np)
 
         if self.model_type == "nb":
-            self.model = CellBoxSteadyStateNB(n_obs=0, n_genes=self.n_genes)
+            self.model = CellBoxSteadyStateNB(
+                n_obs=0, n_genes=self.n_genes, mean_mode=self.mean_mode
+            )
         elif self.model_type == "nb_ds":
             self.model = CellBoxSteadyStateNBDS(
                 n_obs=0,
@@ -163,6 +169,7 @@ class CellBoxEstimator(BaseEstimator):
                 Amask=Amask,
                 reg_embed_dim=self.reg_embed_dim,
                 reg_hidden_dim=self.reg_hidden_dim,
+                mean_mode=self.mean_mode,
             )
         elif self.model_type == "gaussian_ds":
             self.model = CellBoxSteadyStateDS(

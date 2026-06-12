@@ -89,6 +89,7 @@ class CellBoxSteadyStateNBDS(nn.Module):
     epsilon_init: jnp.ndarray | None = None
     reg_embed_dim: int = 16
     reg_hidden_dim: int = 16
+    mean_mode: str = "absolute"  # "absolute" | "residual" (control-anchored)
 
     def setup(self):
         G = self.n_genes
@@ -132,17 +133,28 @@ class CellBoxSteadyStateNBDS(nn.Module):
     def predict(self, y, u):
         return jnp.exp(self.epsilon_) * nn.sigmoid(self.preactivation(y, u))
 
+    def _rollout_lcp10k(self, x0, u, n_steps):
+        """Roll out from raw-count controls x0 under perturbation u → log-CP10K steady state."""
+        return jax.vmap(
+            lambda _x0, _u: jax.lax.fori_loop(
+                0, n_steps, lambda _, v: self.predict(v, _u), self._raw_to_logcp10k(_x0)
+            )
+        )(x0, u)
+
     def predict_steady_state(self, y, u, n_steps=100):
+        """y: raw counts → log-CP10K mean response (single obs, for evaluation).
+
+        Deterministic mean prediction; mirrors the mean construction in __call__
+        (including the control-anchored residual). Library cancels in log-CP10K space.
+        """
         y0 = self._raw_to_logcp10k(y)
-        ypred_logcp10k = jax.lax.fori_loop(0, n_steps, lambda _, val: self.predict(val, u), y0)
-        ypred_scale = y.sum()
-        mean = jnp.expm1(ypred_logcp10k) * ypred_scale / 1e4
-        overd = jnp.exp(self.overdispersion_)
-        dist = NegativeBinomial2(mean=mean, concentration=overd)
-        samples = dist.sample(jax.random.PRNGKey(0), (100,))
-        # samples.mean(0)
-        samples = jnp.log1p(samples / ypred_scale * 1e4)
-        return samples.mean(0)
+        x_pred = jax.lax.fori_loop(0, n_steps, lambda _, v: self.predict(v, u), y0)
+        if self.mean_mode == "residual":
+            x0_pred = jax.lax.fori_loop(
+                0, n_steps, lambda _, v: self.predict(v, jnp.zeros_like(u)), y0
+            )
+            x_pred = self.x_mean_ + x_pred - x0_pred
+        return x_pred
 
     def __call__(
         self, xt: jnp.ndarray, u: jnp.ndarray, x0: jnp.ndarray | None = None, n_steps: int = 0
@@ -151,18 +163,22 @@ class CellBoxSteadyStateNBDS(nn.Module):
         xt_lcp10k = jnp.log1p(xt / (lib + 1e-6) * 1e4)
 
         if x0 is not None and n_steps > 0:
-            x_pred_lcp10k = jax.vmap(
-                lambda _x0, _u: jax.lax.fori_loop(
-                    0, n_steps, lambda _, v: self.predict(v, _u), self._raw_to_logcp10k(_x0)
-                )
-            )(x0, u)
+            x_pred_lcp10k = self._rollout_lcp10k(x0, u, n_steps)
             args = jax.vmap(self.preactivation)(x_pred_lcp10k, u)
+            if self.mean_mode == "residual":
+                # control-anchored residual: population control mean + predicted (perturbed −
+                # control) shift, with the frozen control rollout as a baseline-error correction.
+                x0_pred_lcp10k = jax.lax.stop_gradient(
+                    self._rollout_lcp10k(x0, jnp.zeros_like(u), n_steps)
+                )
+                x_pred_lcp10k = jax.lax.stop_gradient(self.x_mean_) + x_pred_lcp10k - x0_pred_lcp10k
         else:
             args = jax.vmap(self.preactivation)(xt_lcp10k, u)
             x_pred_lcp10k = jnp.exp(self.epsilon_) * nn.sigmoid(args)
 
         xconcat = jnp.log1p(xt)
-        lib_scale = self.library_network(xconcat)
+        # lib_scale = self.library_network(xconcat)
+        lib_scale = xt.sum(-1, keepdims=True) / 1e4
         mean = jnp.maximum(jnp.expm1(x_pred_lcp10k) * lib_scale, 1e-8)
         overdispersion = jnp.exp(self.overdispersion_)
         lkl = NegativeBinomial2(mean=mean, concentration=overdispersion).log_prob(xt)

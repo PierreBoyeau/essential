@@ -303,7 +303,9 @@ class BaseEstimator(ABC):
         path.mkdir(parents=True, exist_ok=True)
         with open(path / "config.json", "w") as f:
             json.dump({"init_params": self._init_params, "extra": self._extra_state()}, f, indent=2)
-        ocp.PyTreeCheckpointer().save(str(path / "checkpoint"), {"params": self.state.params})
+        ocp.PyTreeCheckpointer().save(
+            str(path / "checkpoint"), {"params": self.state.params}, force=True
+        )
 
     @classmethod
     def load(cls, path: str | Path) -> "BaseEstimator":

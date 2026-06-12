@@ -62,7 +62,8 @@ def run(config):
         adata_pred.obs[config.perturbation_col].value_counts().loc[lambda x: x >= 1].index
     )
 
-    rows = []
+    var_names = adata_control.var_names
+    rows, lfc_pred_rows, lfc_gt_rows = [], [], []
     for pert in perturbations:
         mask_pred = np.asarray(adata_pred.obs[config.perturbation_col] == pert)
         mask_gt = np.asarray(adata_test.obs[config.perturbation_col] == pert)
@@ -78,14 +79,20 @@ def run(config):
         }
         print(pert, row_info["n_cells_gt"], row_info["lfc_pearson_r"])
         rows.append(row_info)
+        lfc_pred_rows.append(pd.Series(mu_pred - mu_control, index=var_names, name=pert))
+        lfc_gt_rows.append(pd.Series(mu_gt - mu_control, index=var_names, name=pert))
 
     df = pd.DataFrame(rows).set_index("perturbation")
     overall = df.mean(numeric_only=True).rename("mean").to_frame()
+    lfc_pred_df = pd.DataFrame(lfc_pred_rows)
+    lfc_gt_df = pd.DataFrame(lfc_gt_rows)
 
     out_dir = Path(config.outputs.metrics_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_dir / "perturbation_metrics.csv")
     overall.to_csv(out_dir / "overall_metrics.csv", index=False)
+    lfc_pred_df.to_csv(out_dir / "lfc_pred.csv")
+    lfc_gt_df.to_csv(out_dir / "lfc_gt.csv")
 
     print(overall.to_string())
     return df, overall
