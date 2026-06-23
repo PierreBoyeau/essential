@@ -18,16 +18,17 @@ from essential.gpu_utils import select_best_gpus
 
 select_best_gpus(n_gpus=1)
 
-import scanpy as sc
-from essential.ode import ODEstimator
-from essential.utils import get_hash, compute_topk_precision_metrics
-from ml_collections import config_flags
-from absl import app, flags
-import os
 import json
+import os
+
 import numpy as np
 import optax
+import scanpy as sc
+from absl import app, flags
+from ml_collections import config_flags
 
+from essential.ode import ODEstimator
+from essential.utils import compute_topk_precision_metrics, get_hash
 
 FLAGS = flags.FLAGS
 config_flags.DEFINE_config_file("config", None, "Path to config file", lock_config=False)

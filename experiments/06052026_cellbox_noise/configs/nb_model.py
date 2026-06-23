@@ -20,9 +20,6 @@ def get_config():
     config.training.validate_every_n_epochs = 100
     config.training.log_every_n_epochs = 1
 
-    config.training.tensorboard_log_dir = f"{EXP}/results/{TAG}/tensorboard"
-    config.outputs.checkpoint_dir = f"{EXP}/results/{TAG}/checkpoint"
-    config.outputs.adata_pred = f"{EXP}/results/{TAG}/adata_pred.h5ad"
-    config.outputs.metrics_dir = f"{EXP}/results/{TAG}/metrics"
+    config.outputs.output_dir = f"{EXP}/results/{TAG}"
 
     return config

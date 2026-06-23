@@ -1,7 +1,8 @@
+from functools import partial
+
 import jax
 import jax.numpy as jnp
 import numpy as np
-from functools import partial
 
 
 def compute_jaccard(v1, v2, ks=None):

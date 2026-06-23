@@ -1,10 +1,13 @@
+from pathlib import Path
+
 import numpy as np
 import scanpy as sc
 
-from cellbox import CellBoxEstimator
+from . import CellBoxEstimator
 
 
 def run(config):
+    output_dir = Path(config.outputs.output_dir)
     adata_train = sc.read_h5ad(config.adata_train)
     amask = np.load(config.amask_path) if config.filter_regulators else None
     model = CellBoxEstimator(
@@ -15,9 +18,10 @@ def run(config):
     model.fit(
         adata_train,
         Amask=amask,
+        tensorboard_log_dir=str(output_dir / "tensorboard"),
         **config.training.to_dict(),
     )
-    model.save(config.outputs.checkpoint_dir)
+    model.save(output_dir / "checkpoint")
 
 
 if __name__ == "__main__":

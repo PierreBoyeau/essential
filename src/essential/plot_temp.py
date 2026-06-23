@@ -19,37 +19,37 @@ Design: "gray scaffold, colored fractures"
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from pathlib import Path
 from typing import Sequence
-from collections import defaultdict
 
 import matplotlib
+
 matplotlib.use("Agg")
 
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
 import matplotlib.font_manager as fm
+import matplotlib.lines as mlines
+import matplotlib.pyplot as plt
 import numpy as np
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Design tokens
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_GRAY_EDGE   = "#BCBCBC"
-_GRAY_LABEL  = "#8C8C8C"
-_NODE_NEUTRAL = "#BCBCBC"   # neutral dot when incident classes differ
-_WHITE       = "#FFFFFF"
+_GRAY_EDGE = "#BCBCBC"
+_GRAY_LABEL = "#8C8C8C"
+_NODE_NEUTRAL = "#BCBCBC"  # neutral dot when incident classes differ
+_WHITE = "#FFFFFF"
 
 _PALETTE = [
-    "#D4A5A0",   # dusty rose
-    "#9DC5B4",   # sage
-    "#9BB5CC",   # powder blue
-    "#CCBA8A",   # sand
-    "#B5A0C4",   # lilac
-    "#C4ADA0",   # warm taupe
-    "#A0C4B8",   # mint
-    "#C4B5A0",   # wheat
+    "#D4A5A0",  # dusty rose
+    "#9DC5B4",  # sage
+    "#9BB5CC",  # powder blue
+    "#CCBA8A",  # sand
+    "#B5A0C4",  # lilac
+    "#C4ADA0",  # warm taupe
+    "#A0C4B8",  # mint
+    "#C4B5A0",  # wheat
 ]
 
 """
@@ -64,23 +64,24 @@ Design Constants / Scale Parameters:
   _CHEVRON_POS    : Position of chevron along the segment (0 = start, 1 = end).
   _FIG_DPI        : Default figure canvas DPI (display and raster save).
 """
-_EDGE_WIDTH     = 1.5
-_NODE_RADIUS    = 0.02
-_FONT_SIZE      = 7.0
-_LABEL_PAD      = 0.05
-_EDGE_X_SCALE   = 0.25
-_EDGE_Y_SCALE   = 0.25
-_CHEVRON_SIZE   = 0.018
-_CHEVRON_POS    = 0.62
+_EDGE_WIDTH = 1.5
+_NODE_RADIUS = 0.02
+_FONT_SIZE = 7.0
+_LABEL_PAD = 0.05
+_EDGE_X_SCALE = 0.25
+_EDGE_Y_SCALE = 0.25
+_CHEVRON_SIZE = 0.018
+_CHEVRON_POS = 0.62
 # Subtle under-stroke so the chevron separates cleanly from pale edge colors.
 _CHEVRON_OUTLINE_EXTRA_LW = 0.2
-_CHEVRON_OUTLINE_DARKEN   = 0.22
-_FIG_DPI        = 600
+_CHEVRON_OUTLINE_DARKEN = 0.22
+_FIG_DPI = 600
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Font
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _resolve_font() -> str:
     available = {f.name for f in fm.fontManager.ttflist}
@@ -98,6 +99,7 @@ def _darken(hx: str, amt: float) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Graph utilities
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _build_adj(
     edges: list[tuple[str, str, str]],
@@ -190,6 +192,7 @@ def _collect_subtree(
 # Node color assignment
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _assign_node_colors(
     nodes: Sequence[str],
     edges: list[tuple[str, str, str]],
@@ -224,6 +227,7 @@ def _assign_node_colors(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Trunk-aware layout
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _compute_layout(
     nodes: Sequence[str],
@@ -276,13 +280,12 @@ def _compute_layout(
         y_step = edge_y_scale * (0.8 + 0.2 * depth)
 
         for trunk_node in trunk:
-            branch_targets = [
-                (t, g) for t, g in fwd.get(trunk_node, [])
-                if t not in trunk_set
-            ]
+            branch_targets = [(t, g) for t, g in fwd.get(trunk_node, []) if t not in trunk_set]
             for bt, bg in branch_targets:
                 sub_nodes, sub_edges = _collect_subtree(
-                    bt, spine_edges, exclude=trunk_set,
+                    bt,
+                    spine_edges,
+                    exclude=trunk_set,
                 )
 
                 if not sub_nodes:
@@ -310,19 +313,23 @@ def _compute_layout(
                 sub_direction = direction
                 for sn in sub_spine:
                     sub_branch_targets = [
-                        (t, g) for t, g in sub_fwd.get(sn, [])
+                        (t, g)
+                        for t, g in sub_fwd.get(sn, [])
                         if t not in sub_trunk_set and t not in positions
                     ]
                     for sbt, sbg in sub_branch_targets:
                         sub2_nodes, sub2_edges = _collect_subtree(
-                            sbt, sub_edges, exclude=sub_trunk_set,
+                            sbt,
+                            sub_edges,
+                            exclude=sub_trunk_set,
                         )
                         sub2_y = branch_y + sub_direction * y_step
                         sub2_col = trunk_col[sn] + 1
                         sub2_spine = _find_longest_path(sub2_nodes, sub2_edges)
                         for k, s2n in enumerate(sub2_spine):
                             positions[s2n] = (
-                                (sub2_col + k) * edge_x_scale, sub2_y,
+                                (sub2_col + k) * edge_x_scale,
+                                sub2_y,
                             )
                         sub_direction *= -1
 
@@ -331,9 +338,13 @@ def _compute_layout(
         return next_col
 
     _layout_spine(
-        list(nodes), list(edges), list(edges),
-        start_col=0, y_base=0.0,
-        branch_dir=1, depth=0,
+        list(nodes),
+        list(edges),
+        list(edges),
+        start_col=0,
+        y_base=0.0,
+        branch_dir=1,
+        depth=0,
     )
 
     max_col = max((p[0] for p in positions.values()), default=0) / edge_x_scale
@@ -348,6 +359,7 @@ def _compute_layout(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Orthogonal edge routing
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _route_edge(
     p0: tuple[float, float],
@@ -375,6 +387,7 @@ def _route_edge(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Direction chevrons
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _draw_chevron(
     ax: plt.Axes,
@@ -428,16 +441,21 @@ def _draw_chevron(
     xs = [arm1[0], tx, arm2[0]]
     ys = [arm1[1], ty, arm2[1]]
     ax.plot(
-        xs, ys,
+        xs,
+        ys,
         color=_darken(color, _CHEVRON_OUTLINE_DARKEN),
         linewidth=linewidth + _CHEVRON_OUTLINE_EXTRA_LW,
-        solid_capstyle="round", solid_joinstyle="round",
+        solid_capstyle="round",
+        solid_joinstyle="round",
         zorder=2,
     )
     ax.plot(
-        xs, ys,
-        color=color, linewidth=linewidth,
-        solid_capstyle="round", solid_joinstyle="round",
+        xs,
+        ys,
+        color=color,
+        linewidth=linewidth,
+        solid_capstyle="round",
+        solid_joinstyle="round",
         zorder=3,
     )
 
@@ -445,6 +463,7 @@ def _draw_chevron(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Color assignment
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _assign_colors(
     equivalence_classes: Sequence[set[str]],
@@ -477,6 +496,7 @@ def _assign_colors(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Public API
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def path_plot(
     nodes: Sequence[str],
@@ -535,9 +555,7 @@ def path_plot(
     color_map = _assign_colors(equivalence_classes, class_colors)
 
     # build gene → edge color lookup for node coloring
-    gene_to_edge_color: dict[str, str] = {
-        gene: ec for gene, (ec, _lc) in color_map.items()
-    }
+    gene_to_edge_color: dict[str, str] = {gene: ec for gene, (ec, _lc) in color_map.items()}
     node_color_map = _assign_node_colors(nodes, edges, gene_to_edge_color)
 
     # figure sizing
@@ -569,24 +587,30 @@ def path_plot(
         ec, lc = color_map.get(gene, (_GRAY_EDGE, _GRAY_LABEL))
 
         ax.plot(
-            [w[0] for w in wp], [w[1] for w in wp],
-            color=ec, linewidth=edge_width,
-            solid_capstyle="round", solid_joinstyle="round",
+            [w[0] for w in wp],
+            [w[1] for w in wp],
+            color=ec,
+            linewidth=edge_width,
+            solid_capstyle="round",
+            solid_joinstyle="round",
             zorder=1,
         )
 
         # find the longest segment for label + chevron placement
         lengths = [
-            math.hypot(wp[i+1][0] - wp[i][0], wp[i+1][1] - wp[i][1])
-            for i in range(len(wp) - 1)
+            math.hypot(wp[i + 1][0] - wp[i][0], wp[i + 1][1] - wp[i][1]) for i in range(len(wp) - 1)
         ]
         best_seg = int(np.argmax(lengths))
 
         # ── chevron on the longest segment ───────────────────────────
         if show_chevrons:
             _draw_chevron(
-                ax, wp[best_seg], wp[best_seg + 1],
-                color=ec, size=chevron_size, position=chevron_pos,
+                ax,
+                wp[best_seg],
+                wp[best_seg + 1],
+                color=ec,
+                size=chevron_size,
+                position=chevron_pos,
             )
 
         # ── label on the longest segment ─────────────────────────────
@@ -605,9 +629,15 @@ def path_plot(
             ha, va = "center", "bottom"
 
         ax.text(
-            lx, ly, gene,
-            fontsize=font_size, fontfamily=font_family,
-            color=lc, ha=ha, va=va, zorder=4,
+            lx,
+            ly,
+            gene,
+            fontsize=font_size,
+            fontfamily=font_family,
+            color=lc,
+            ha=ha,
+            va=va,
+            zorder=4,
         )
 
     # ── draw nodes ───────────────────────────────────────────────────────
@@ -615,9 +645,12 @@ def path_plot(
         x, y = pos[n]
         nc = node_color_map[n]
         circle = plt.Circle(
-            (x, y), radius=node_radius,
-            facecolor=nc, edgecolor=nc,
-            linewidth=0, zorder=5,
+            (x, y),
+            radius=node_radius,
+            facecolor=nc,
+            edgecolor=nc,
+            linewidth=0,
+            zorder=5,
         )
         ax.add_patch(circle)
 
@@ -627,23 +660,22 @@ def path_plot(
         others = sorted_cls[1:]
 
         handles = [
-            mlines.Line2D([0], [0], color=_GRAY_EDGE, lw=edge_width,
-                           solid_capstyle="round", label="expected"),
+            mlines.Line2D(
+                [0], [0], color=_GRAY_EDGE, lw=edge_width, solid_capstyle="round", label="expected"
+            ),
         ]
         for i, cls in enumerate(others):
             c = _PALETTE[i % len(_PALETTE)]
             lab = ", ".join(sorted(cls)) if len(cls) <= 3 else f"{len(cls)} genes"
             handles.append(
-                mlines.Line2D([0], [0], color=c, lw=edge_width,
-                               solid_capstyle="round", label=lab)
+                mlines.Line2D([0], [0], color=c, lw=edge_width, solid_capstyle="round", label=lab)
             )
     else:
         handles = []
         for cls, c in zip(equivalence_classes, class_colors):
             lab = ", ".join(sorted(cls)) if len(cls) <= 3 else f"{len(cls)} genes"
             handles.append(
-                mlines.Line2D([0], [0], color=c, lw=edge_width,
-                               solid_capstyle="round", label=lab)
+                mlines.Line2D([0], [0], color=c, lw=edge_width, solid_capstyle="round", label=lab)
             )
 
     # leg = ax.legend(
@@ -659,8 +691,10 @@ def path_plot(
 
     if save_path is not None:
         fig.savefig(
-            save_path, dpi=dpi,
-            bbox_inches="tight", pad_inches=0.03,
+            save_path,
+            dpi=dpi,
+            bbox_inches="tight",
+            pad_inches=0.03,
             facecolor=_WHITE,
         )
     if show:

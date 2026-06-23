@@ -23,10 +23,6 @@ def get_config():
 
     config.training.n_epochs = 100
     config.training.learning_rate = 1e-3
-    config.training.tensorboard_log_dir = f"{EXP}/results/{TAG}/tensorboard"
-
-    config.outputs.checkpoint_dir = f"{EXP}/results/{TAG}/checkpoint"
-    config.outputs.adata_pred = f"{EXP}/results/{TAG}/adata_pred.h5ad"
-    config.outputs.metrics_dir = f"{EXP}/results/{TAG}/metrics"
+    config.outputs.output_dir = f"{EXP}/results/{TAG}"
 
     return config

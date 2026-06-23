@@ -1,7 +1,9 @@
 import networkx as nx
 import numpy as np
 import scanpy as sc
+
 from essential.pathway_discontinuity import PathwayDiscontinuity
+
 
 def create_random_data():
     perturbation_classes = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
@@ -29,6 +31,7 @@ def create_random_data():
 
     return adata, G
 
+
 def test_pathway_discontinuity():
     adata, G = create_random_data()
     sc.pp.highly_variable_genes(adata, n_top_genes=500, flavor="seurat_v3")
@@ -37,6 +40,6 @@ def test_pathway_discontinuity():
     pda = PathwayDiscontinuity(adata, representation_obsm_key="X_pca", metabolic_graph=G)
 
     pairs = pda._extract_consecutive_pairs(G)
-    
+
     results = pda.fit(threshold=0.1, mode="mmd_stat")
     results.plot()

@@ -3,12 +3,12 @@ from essential.gpu_utils import select_best_gpus
 select_best_gpus(n_gpus=1)
 
 import numpy as np
-import scanpy as sc
 import optuna
+import scanpy as sc
+
+from essential.configs.base import get_config
 from essential.ode import ODEstimator
 from essential.utils import evaluate_interactions_on_regulondb
-from essential.configs.base import get_config
-
 
 # Load base configuration
 config = get_config()

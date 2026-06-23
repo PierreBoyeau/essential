@@ -19,7 +19,7 @@ import pandas as pd
 
 # profile_metrics lives in the cellbox package (single source of truth, shared
 # with CellBoxEstimator.validate_perturbations); re-exported here for the API.
-from cellbox.metrics import profile_metrics
+from legacy.cellbox.metrics import profile_metrics
 
 
 class PerturbationPredictionMetrics:

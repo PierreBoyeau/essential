@@ -41,7 +41,7 @@ def run(config):
 
     adata_pred = sc.AnnData(X, obs=obs, var=adata_control.var)
 
-    out_path = Path(config.outputs.adata_pred)
+    out_path = Path(config.outputs.output_dir) / config.outputs.adata_pred_filename
     out_path.parent.mkdir(parents=True, exist_ok=True)
     adata_pred.write_h5ad(out_path)
     print(f"wrote {adata_pred.shape} → {out_path}")

@@ -1,8 +1,8 @@
+import diffrax
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
-from flax.linen.initializers import glorot_normal, normal, zeros, constant, ones
-import flax.linen as nn
-import diffrax
+from flax.linen.initializers import constant, glorot_normal, normal, ones, zeros
 
 from .base_model import BaseModel
 
@@ -33,7 +33,7 @@ class Sigmoid2SteadyStateModel(BaseModel):
     def __call__(self, xt: jnp.ndarray, u: jnp.ndarray, **kwargs) -> dict:
         A_mat = self.get_Amat()
         x_pred = jax.vmap(self.predict, in_axes=(0, 0))(xt, u)
-        
+
         deltas = x_pred - xt
         deltas = deltas * (1.0 - u)
 

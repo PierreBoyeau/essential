@@ -19,7 +19,7 @@ import scanpy as sc
 from scipy import sparse
 
 sys.path.insert(0, "/workspace/src")
-from cellbox.metrics import profile_metrics
+from legacy.cellbox.metrics import profile_metrics
 
 
 def _as_dense(X):
@@ -47,7 +47,8 @@ def run(config):
     # the log-CP10K space that predict_steady_state returns.
     layer_eval = getattr(model_cfg, "layer_eval", None) or layer
 
-    adata_pred = sc.read_h5ad(config.outputs.adata_pred)
+    output_dir = Path(config.outputs.output_dir)
+    adata_pred = sc.read_h5ad(output_dir / config.outputs.adata_pred_filename)
     adata_test = sc.read_h5ad(config.adata_test)
     adata_control = sc.read_h5ad(config.adata_control)
 
@@ -87,7 +88,7 @@ def run(config):
     lfc_pred_df = pd.DataFrame(lfc_pred_rows)
     lfc_gt_df = pd.DataFrame(lfc_gt_rows)
 
-    out_dir = Path(config.outputs.metrics_dir)
+    out_dir = output_dir / config.outputs.metrics_dir_name
     out_dir.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_dir / "perturbation_metrics.csv")
     overall.to_csv(out_dir / "overall_metrics.csv", index=False)

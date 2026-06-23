@@ -1,10 +1,11 @@
-import requests
-import pandas as pd
 import io
-import xml.etree.ElementTree as ET
-import networkx as nx
-from collections import defaultdict
 import time
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+
+import networkx as nx
+import pandas as pd
+import requests
 
 
 class KEGGNavigator:

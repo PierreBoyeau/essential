@@ -1,7 +1,7 @@
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
-from flax.linen.initializers import glorot_normal, zeros, ones
-import flax.linen as nn
+from flax.linen.initializers import glorot_normal, ones, zeros
 
 from .base_model import BaseModel
 

@@ -1,10 +1,11 @@
 # %%
-from kegg_utils import KEGGNavigator
-from tqdm import tqdm
+import os
+
+import numpy as np
 import pandas as pd
 import plotnine as gg
-import numpy as np
-import os
+from kegg_utils import KEGGNavigator
+from tqdm import tqdm
 
 # %%
 navigator = KEGGNavigator()
@@ -60,10 +61,12 @@ print(f"Found {all_reactions['reaction_id'].unique().shape[0]} unique reactions.
 gene_relationships_df = pd.DataFrame(gene_relationships)
 
 # Find the specific edge for coaA_coaD
-coaA_coaD_edges = gene_relationships_df[
-    gene_relationships_df["gene_pair"] == "coaA_coaD"
-]
-print(coaA_coaD_edges[["pathway_id", "compound", "relation_types", "relation_subtypes", "interaction_annotation"]])
+coaA_coaD_edges = gene_relationships_df[gene_relationships_df["gene_pair"] == "coaA_coaD"]
+print(
+    coaA_coaD_edges[
+        ["pathway_id", "compound", "relation_types", "relation_subtypes", "interaction_annotation"]
+    ]
+)
 
 # %%
 

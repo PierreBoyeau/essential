@@ -22,10 +22,12 @@ def discover_modules() -> list[str]:
     svgs = {p.stem for p in FIGURES_DIR.glob("*.svg")}
     pngs = {p.stem.removesuffix("_umap") for p in FIGURES_DIR.glob("*_umap.png")}
     both = svgs & pngs
+
     # Extract numeric part for sorting (e.g. eco_eco_M00001 -> 1)
     def sort_key(name: str) -> int:
         digits = re.sub(r"\D", "", name)
         return int(digits) if digits else 0
+
     return sorted(both, key=sort_key)
 
 

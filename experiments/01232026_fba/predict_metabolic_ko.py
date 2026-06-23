@@ -1,16 +1,16 @@
 # %%
 import json
-import pandas as pd
-import plotnine as gg
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
-import os
 import optlang
+import pandas as pd
+import plotnine as gg
 from cobra.flux_analysis import moma
-from joblib import Parallel, delayed
-
 from cobra_models import get_model_components_df, load_ecoli_rich_medium_model
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 metabolites_df, reactions_df, genes_df = get_model_components_df()
 

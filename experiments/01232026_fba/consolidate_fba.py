@@ -1,7 +1,8 @@
-import pandas as pd
+import argparse
 import glob
 import os
-import argparse
+
+import pandas as pd
 
 
 def consolidate_results(output_dir):

@@ -1,7 +1,8 @@
-import pandas as pd
-import cobra
 import json
+
+import cobra
 import numpy as np
+import pandas as pd
 
 
 def get_model_components_df():

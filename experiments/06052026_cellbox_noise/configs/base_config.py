@@ -38,10 +38,6 @@ def get_config():
     config.training.split_by_perturbation = True
     config.training.gradient_clip_norm = None
     config.training.max_val_perturbations = None
-    config.training.tensorboard_log_dir = f"{EXP}/results/{TAG}/tensorboard"
-
-    config.outputs.checkpoint_dir = f"{EXP}/results/{TAG}/checkpoint"
-    config.outputs.adata_pred = f"{EXP}/results/{TAG}/adata_pred.h5ad"
-    config.outputs.metrics_dir = f"{EXP}/results/{TAG}/metrics"
+    config.outputs.output_dir = f"{EXP}/results/{TAG}"
 
     return config

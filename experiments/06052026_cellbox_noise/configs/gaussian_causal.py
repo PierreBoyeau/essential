@@ -1,6 +1,5 @@
 import os
 import sys
-from logging import config
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from nb_model import get_config as _base_config
@@ -21,10 +20,6 @@ def get_config():
     config.model.n_rollout_train = 1
     config.model.n_rollout_val = 10
 
-    config.training.tensorboard_log_dir = f"{EXP}/results/{TAG}/tensorboard"
-
-    config.outputs.checkpoint_dir = f"{EXP}/results/{TAG}/checkpoint"
-    config.outputs.adata_pred = f"{EXP}/results/{TAG}/adata_pred.h5ad"
-    config.outputs.metrics_dir = f"{EXP}/results/{TAG}/metrics"
+    config.outputs.output_dir = f"{EXP}/results/{TAG}"
 
     return config

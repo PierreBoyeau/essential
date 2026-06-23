@@ -1,10 +1,10 @@
-import os
 import glob
-from typing import TypedDict, Optional
+import os
+from typing import Optional, TypedDict
 
-from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import SystemMessage, HumanMessage
+from langgraph.graph import END, StateGraph
 
 
 # Define the state for the graph
@@ -37,7 +37,9 @@ def generate_analysis(state: AnalysisState) -> AnalysisState:
     report_content = state.get("report_content")
     if not report_content:
         return {"analysis_output": None}
-    prompt_path = "/workspace/experiments/01162026_automatedtesting/prompts/phenotype_similarity_analysis.md"
+    prompt_path = (
+        "/workspace/experiments/01162026_automatedtesting/prompts/phenotype_similarity_analysis.md"
+    )
     try:
         with open(prompt_path, "r") as f:
             system_prompt = f.read()

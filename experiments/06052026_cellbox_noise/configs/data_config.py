@@ -19,8 +19,8 @@ def get_config():
     config.model.layer_eval = "log1p"
 
     config.outputs = config_dict.ConfigDict()
-    config.outputs.adata_pred = ""
-    config.outputs.adata_pred_from_tfs = ""
-    config.outputs.metrics_dir = ""
+    config.outputs.output_dir = ""
+    config.outputs.adata_pred_filename = "adata_pred.h5ad"
+    config.outputs.metrics_dir_name = "metrics"
 
     return config

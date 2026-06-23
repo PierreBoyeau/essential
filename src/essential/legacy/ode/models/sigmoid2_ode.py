@@ -2,12 +2,11 @@
 Untested model since refactor; do not use without testing.
 """
 
-
+import diffrax
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
-from flax.linen.initializers import glorot_normal, normal, zeros, constant, ones
-import flax.linen as nn
-import diffrax
+from flax.linen.initializers import constant, glorot_normal, normal, ones, zeros
 
 from .base_model import BaseModel
 

@@ -3,12 +3,13 @@ from essential.gpu_utils import select_best_gpus
 select_best_gpus(n_gpus=1)
 
 import numpy as np
-import scanpy as sc
+import optax
 import optuna
+import scanpy as sc
+
+from essential.configs.base import get_config
 from essential.ode import ODEstimator
 from essential.utils import evaluate_interactions_on_regulondb, load_regulondb_full
-from essential.configs.base import get_config
-import optax
 
 # trial_name = "hparam_tuning7"
 # Load base configuration

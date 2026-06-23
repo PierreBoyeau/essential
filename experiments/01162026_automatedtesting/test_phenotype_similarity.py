@@ -1,19 +1,17 @@
 # %%
+import json
+import os
+
+import numpy as np
 import pandas as pd
 import plotnine as gg
 import scanpy as sc
-from tqdm import tqdm
-import os
 import scipy.stats as st
-import numpy as np
-from statsmodels.stats.multitest import multipletests
-import json
 from stats_utils import MMDTestJax
+from statsmodels.stats.multitest import multipletests
+from tqdm import tqdm
 
-
-FIG_DIR = (
-    "/workspace/experiments/01162026_automatedtesting/outputs/phenotype_similarity/outputs_presentation"
-)
+FIG_DIR = "/workspace/experiments/01162026_automatedtesting/outputs/phenotype_similarity/outputs_presentation"
 os.makedirs(FIG_DIR, exist_ok=True)
 
 gene_pair_to_description = pd.read_csv(
@@ -176,7 +174,9 @@ for gene_pair_info in tqdm(unique_kegg_relationships):
 
 # %%
 #
-results_df = pd.DataFrame(list(analyzer.all_results_dict.values()), index=analyzer.all_results_dict.keys())
+results_df = pd.DataFrame(
+    list(analyzer.all_results_dict.values()), index=analyzer.all_results_dict.keys()
+)
 results_df.to_csv(os.path.join(FIG_DIR, "results.csv"))
 # %%
 FIG_DIR

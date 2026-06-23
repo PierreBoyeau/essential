@@ -1,7 +1,7 @@
-import pandas as pd
-import numpy as np
-import plotnine as gg
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import plotnine as gg
 
 # Load Fitness Data
 fitness_path = "/workspace/data/calvo2020_dcas9fitness/Supp_data2_log2FC.csv"
@@ -34,7 +34,10 @@ print(f"Ratio (T2/T4) vs T4: {essential['ratio'].corr(essential['T4']):.4f}")
 
 # Check for edge cases
 print("\n--- Edge Cases ---")
-print("User Score > 0 (T2 < T4, steeper early? or noise):", len(essential[essential["user_score"] > 0]))
+print(
+    "User Score > 0 (T2 < T4, steeper early? or noise):",
+    len(essential[essential["user_score"] > 0]),
+)
 print("User Score < -1 (T2 > 0, growth initially?):", len(essential[essential["user_score"] < -1]))
 
 # Sample some genes
@@ -42,7 +45,9 @@ print("\n--- Sample Genes (Top 5 Late - score near -1) ---")
 print(essential.sort_values("user_score").head(5)[["gene", "T2", "T4", "user_score"]])
 
 print("\n--- Sample Genes (Top 5 Early - score near 0) ---")
-print(essential.sort_values("user_score", ascending=False).head(5)[["gene", "T2", "T4", "user_score"]])
+print(
+    essential.sort_values("user_score", ascending=False).head(5)[["gene", "T2", "T4", "user_score"]]
+)
 
 # Plotting
 # We want to see if the score is just a proxy for T4 (stronger genes deplete faster?)
@@ -62,4 +67,3 @@ p2 = (
     + gg.labs(title="T2 vs T4 Fitness")
 )
 p2.save("/workspace/experiments/01012026_branching/t2_vs_t4.png")
-

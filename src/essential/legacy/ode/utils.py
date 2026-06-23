@@ -1,14 +1,12 @@
-import pandas as pd
-import numpy as np
+import hashlib
 import json
 import os
 import subprocess
 
+import numpy as np
+import pandas as pd
 import sklearn.metrics as metrics
 from skimage.filters import threshold_otsu
-
-import hashlib
-
 
 COLUMNS_TO_KEEP = [
     "ri_id",

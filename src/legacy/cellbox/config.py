@@ -41,11 +41,10 @@ def get_config():
     config.training.split_by_perturbation = False
     config.training.max_val_perturbations = None
     config.training.validate_every_n_epochs = 0
-    config.training.tensorboard_log_dir = ""
 
     config.outputs = config_dict.ConfigDict()
-    config.outputs.checkpoint_dir = ""
-    config.outputs.adata_pred = ""
-    config.outputs.metrics_dir = ""
+    config.outputs.output_dir = ""
+    config.outputs.adata_pred_filename = "adata_pred.h5ad"
+    config.outputs.metrics_dir_name = "metrics"
 
     return config

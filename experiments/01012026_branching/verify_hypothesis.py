@@ -1,4 +1,3 @@
-
 # ---------------------------------------------------------
 # Verification of Dosage Insensitive vs Sensitive Essential Genes
 # ---------------------------------------------------------
@@ -24,13 +23,13 @@ print(f"Mean value_full (0MM growth) for insensitive: {insensitive['value_full']
 
 # Check distribution of growth rates within the insensitive group
 print("\nDistribution of value_full (0MM Growth) for Insensitive group:")
-print(insensitive['value_full'].describe())
+print(insensitive["value_full"].describe())
 
 # Check for bimodal distribution (Low Growth vs High Growth)
 # Low Growth (< 0.6): Likely hypersensitive (even 2MM is lethal)
 # High Growth (>= 0.6): Likely escapers/ineffective (even 0MM is healthy)
-insensitive_low = insensitive[insensitive['value_full'] < 0.6]
-insensitive_high = insensitive[insensitive['value_full'] >= 0.6]
+insensitive_low = insensitive[insensitive["value_full"] < 0.6]
+insensitive_high = insensitive[insensitive["value_full"] >= 0.6]
 
 print(f"\nInsensitive Low Growth (Hypersensitive?): {len(insensitive_low)}")
 if len(insensitive_low) > 0:
@@ -44,7 +43,8 @@ if len(insensitive_high) > 0:
 (
     gg.ggplot(insensitive, gg.aes(x="value_full"))
     + gg.geom_histogram(binwidth=0.05, fill="steelblue", color="white")
-    + gg.labs(title="Distribution of Growth Rates (0MM) for Dosage-Insensitive Essential Genes", x="Instantaneous Growth Rate (0MM)")
+    + gg.labs(
+        title="Distribution of Growth Rates (0MM) for Dosage-Insensitive Essential Genes",
+        x="Instantaneous Growth Rate (0MM)",
+    )
 )
-
-

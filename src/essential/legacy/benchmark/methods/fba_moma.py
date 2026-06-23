@@ -6,8 +6,9 @@ import numpy as np
 import pandas as pd
 from cobra.flux_analysis import moma, pfba
 from joblib import Parallel, delayed
-from src.data.metabolic_models import get_model
 from tqdm import tqdm
+
+from src.data.metabolic_models import get_model
 
 from .base import MetabolicRepresentationMethod
 

@@ -1,8 +1,8 @@
+import diffrax
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
 from flax.linen.initializers import normal
-import flax.linen as nn
-import diffrax
 
 from .base_model import BaseModel
 

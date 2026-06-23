@@ -13,8 +13,8 @@ import scanpy as sc
 from scipy import sparse
 from tqdm import tqdm
 
-from cellbox import CellBoxEstimator
 from data import _as_dense
+from legacy.cellbox import CellBoxEstimator
 
 REGISTRY: dict[str, type] = {}
 

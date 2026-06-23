@@ -13,7 +13,6 @@ def get_config():
 
     config.tag = TAG
 
-    config.outputs.adata_pred = f"{EXP}/results/{TAG}/adata_pred.h5ad"
-    config.outputs.metrics_dir = f"{EXP}/results/{TAG}/metrics"
+    config.outputs.output_dir = f"{EXP}/results/{TAG}"
 
     return config

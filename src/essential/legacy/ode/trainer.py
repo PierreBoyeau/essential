@@ -2,11 +2,10 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from tqdm import tqdm
-from flax.training import train_state
 import pandas as pd
 import scanpy as sc
-
+from flax.training import train_state
+from tqdm import tqdm
 
 from .models import MODEL_REGISTRY
 

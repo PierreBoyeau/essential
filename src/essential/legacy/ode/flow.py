@@ -1,11 +1,12 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
 import pandas as pd
 from ott.geometry import pointcloud
 from ott.solvers import linear
-from .trainer import Trainer
 from scipy.sparse import issparse
-import numpy as np
+
+from .trainer import Trainer
 
 
 class FlowMatchingEstimator(Trainer):
