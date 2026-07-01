@@ -57,3 +57,10 @@ Best trial:
     model_class: dynamic_cellbox
 
 
+
+
+SRC="/ewsc/pboyeau/data"
+DST="/data/pboyeau/data"
+rsync -a --size-only --delete --info=progress2 "$SRC/" "$DST/"
+
+cp -r /ewsc/pboyeau/data/06222026_bone_marrow_atlas /data/pboyeau/data/06222026_bone_marrow_atlas
