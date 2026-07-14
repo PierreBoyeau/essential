@@ -13,7 +13,7 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 from flax.linen.initializers import glorot_normal, zeros
-from numpyro.distributions import NegativeBinomial2
+from numpyro.distributions import NegativeBinomial2, Poisson
 
 
 def lcp_to_count_mean(lcp_pred, lib, eps: float = 1e-8):
@@ -24,6 +24,17 @@ def lcp_to_count_mean(lcp_pred, lib, eps: float = 1e-8):
 def nb_nll(mean, concentration, y_raw):
     """Per-(cell, gene) NB NLL. No reduction — the caller picks the mean."""
     return -NegativeBinomial2(mean=mean, concentration=concentration).log_prob(y_raw)
+
+
+def poisson_nll(mean, concentration, y_raw):
+    """Per-(cell, gene) Poisson NLL.
+
+    ``concentration`` is ignored — kept in the signature so this is a
+    drop-in swap for ``nb_nll`` wherever a loss/eval function is threaded
+    through ``fit`` / ``fit_dro`` / the eval helpers.
+    """
+    del concentration
+    return -Poisson(rate=mean).log_prob(y_raw)
 
 
 class TFRegression(nn.Module):
@@ -64,6 +75,7 @@ class TFRegression(nn.Module):
 # Floor on the log mean-rate offset ᾱ_g (= log of the control-cell mean CP10K).
 # Genes silent in controls have mean rate 0 → ᾱ_g = −∞, so clamp to this value.
 ALPHA_FLOOR = math.log(1e-3)
+MEAN_FLOOR = 1e-6
 
 
 class TFRegressionFixed(nn.Module):
@@ -105,7 +117,56 @@ class TFRegressionFixed(nn.Module):
             W = W * jax.lax.stop_gradient(jnp.asarray(self.Amask_tf))
         lcp_pred = x_mean + x_tf @ W.T + b
 
-        mean = jnp.exp(lcp_pred) * lib[:, None] / 1e4  # log link
+        # log link, floored to keep the NB-NLL gradient finite (see MEAN_FLOOR)
+        mean = jnp.clip(jnp.exp(lcp_pred) * lib[:, None] / 1e4, a_min=MEAN_FLOOR)
+        conc = jnp.exp(overdispersion_)
+        return mean, conc
+
+
+class TFRegressionFixedNuisance(nn.Module):
+    """``TFRegressionFixed`` with an additive linear block for nuisance covariates.
+
+    Combines the log-link parameterisation of ``TFRegressionFixed`` (``exp``
+    inverse link, ᾱ-offset floored at ``ALPHA_FLOOR``) with the nuisance-block
+    convention of ``TFRegressionNuisance`` (covariates appended to ``x_tf`` as
+    trailing columns, dense ``C`` never masked, never entering ``W``)::
+
+        x = [ x_tf (n_tfs) | x_cov (n_cov) ]      # (B, n_tfs + n_cov)
+
+    Predictor (per cell):
+        lcp_pred = ᾱ + (W ⊙ Amask_tf) @ x_tf + C @ x_cov + b
+
+    Likelihood (per cell, per gene):
+        y_raw | mean, conc  ~  NB2(mean, conc)
+        mean = exp(lcp_pred) · lib / 1e4        # log link
+        conc = exp(overdispersion_)
+
+    See ``TFRegressionFixed`` for the ᾱ-offset semantics and ``TFRegressionNuisance``
+    for the covariate-block convention.  Set ``Amask_tf=None`` for the
+    unconstrained variant (dense W).
+    """
+
+    n_genes: int
+    n_tfs: int
+    n_cov: int
+    x_mean: jnp.ndarray  # (n_genes,)  frozen offset ᾱ_g = log(ctrl-mean CP10K rate)
+    Amask_tf: jnp.ndarray | None = None  # (n_genes, n_tfs)  {0, 1}
+
+    @nn.compact
+    def __call__(self, x_tf, lib):
+        W = self.param("W", glorot_normal(), (self.n_genes, self.n_tfs))
+        C = self.param("C", glorot_normal(), (self.n_genes, self.n_cov))
+        b = self.param("b", zeros, (self.n_genes,))
+        overdispersion_ = self.param("overdispersion_", zeros, (self.n_genes,))
+
+        x_tf, x_cov = x_tf[:, : self.n_tfs], x_tf[:, self.n_tfs :]
+        x_mean = jax.lax.stop_gradient(jnp.maximum(jnp.asarray(self.x_mean), ALPHA_FLOOR))
+        if self.Amask_tf is not None:
+            W = W * jax.lax.stop_gradient(jnp.asarray(self.Amask_tf))
+        lcp_pred = x_mean + x_tf @ W.T + x_cov @ C.T + b
+
+        # log link, floored to keep the NB-NLL gradient finite (see MEAN_FLOOR)
+        mean = jnp.clip(jnp.exp(lcp_pred) * lib[:, None] / 1e4, a_min=MEAN_FLOOR)
         conc = jnp.exp(overdispersion_)
         return mean, conc
 

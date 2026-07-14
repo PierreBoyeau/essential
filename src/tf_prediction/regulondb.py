@@ -143,9 +143,17 @@ def build_tf_mask(var_names, ref_db) -> dict:
     Returns
     -------
     dict
-        ``tf_genes``  : sorted list[str] of TF symbols present in ``var_names``
-        ``tf_cols``   : (n_tfs,) int64 — indices into ``var_names``
-        ``Amask_tf``  : (n_genes, n_tfs) float32 — ``1`` iff TF k regulates gene i
+        ``tf_genes``     : sorted list[str] of TF symbols present in ``var_names``
+        ``tf_cols``      : (n_tfs,) int64 — indices into ``var_names``
+        ``target_genes`` : list[str] of target (gene-axis) symbols — the rows of
+            ``Amask_tf`` and the columns of ``Y_raw``. Initially all of
+            ``var_names``; ``restrict_targets`` subsets it.
+        ``target_cols``  : (n_genes,) int64 — indices into ``var_names`` for the
+            target axis (initially ``arange(n_genes)``).
+        ``Amask_tf``     : (n_genes, n_tfs) float32 — ``1`` iff TF k regulates gene i
+
+    ``target_genes``/``target_cols``/``Amask_tf`` share the same gene axis; use
+    ``restrict_targets`` to subset all three together.
     """
     var_names = list(var_names)
     gene_idx = {g: i for i, g in enumerate(var_names)}
@@ -161,4 +169,44 @@ def build_tf_mask(var_names, ref_db) -> dict:
         if t in gene_idx and r in tf_idx:
             Amask[gene_idx[t], tf_idx[r]] = 1.0
 
-    return {"tf_genes": tf_genes, "tf_cols": tf_cols, "Amask_tf": Amask}
+    return {
+        "tf_genes": tf_genes,
+        "tf_cols": tf_cols,
+        "target_genes": list(var_names),
+        "target_cols": np.arange(n_genes, dtype=np.int64),
+        "Amask_tf": Amask,
+    }
+
+
+def restrict_targets(mask: dict, keep) -> dict:
+    """Restrict the target (gene) axis of a TF mask to ``keep``.
+
+    ``keep`` is a boolean array over the current target axis, or an index array
+    into it. Subsets ``Amask_tf``, ``target_genes`` and ``target_cols`` together
+    so the three can never drift apart — this is the single place the target axis
+    is narrowed. The TF axis is untouched. Returns a new mask; the input is not
+    mutated, so restrictions compose (``target_cols`` always references the
+    original ``var_names``).
+
+    Example
+    -------
+    >>> mask = restrict_targets(mask, mask["Amask_tf"].sum(1) >= 1)  # genes with a regulator
+    """
+    Amask = mask["Amask_tf"]
+    keep = np.asarray(keep)
+    if keep.dtype == bool:
+        if keep.shape[0] != Amask.shape[0]:
+            raise ValueError(
+                f"boolean `keep` has length {keep.shape[0]} but the current target "
+                f"axis has {Amask.shape[0]} genes"
+            )
+        idx = np.where(keep)[0]
+    else:
+        idx = keep.astype(np.int64)
+
+    return {
+        **mask,
+        "target_genes": [mask["target_genes"][i] for i in idx],
+        "target_cols": np.asarray(mask["target_cols"])[idx],
+        "Amask_tf": Amask[idx],
+    }

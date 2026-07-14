@@ -2,15 +2,16 @@
 
 Public surface:
     prepare_layers, TFStandardizer, TFArrays          — data
-    build_tf_mask                                     — RegulonDB → mask
+    build_tf_mask, restrict_targets                   — RegulonDB → mask
     load_synonym_rows, reconcile_names                — RegulonDB name reconciliation
     MetabolicModel, build_gt_labels, GTLabels         — iML1515 → GT labels
     TFRegression, ConstantMean, TFCellBox             — models
     TFRegressionFixed                                 — TFRegression w/ log link
-    TFRegressionNuisance, TFCellBoxNuisance           — models w/ nuisance covariates
-    lcp_to_count_mean, nb_nll                         — likelihood building blocks
-    fit                                               — training loop
-    per_gene_nll, per_perturbation_nll                — NLL evaluators
+    TFRegressionNuisance, TFRegressionFixedNuisance,
+        TFCellBoxNuisance                             — models w/ nuisance covariates
+    lcp_to_count_mean, nb_nll, poisson_nll             — likelihood building blocks
+    fit, fit_dro                                      — training loops (MLE / group-DRO)
+    per_gene_nll, per_cell_nll, per_perturbation_nll  — NLL evaluators
     per_perturbation_moments, tf_zscores              — NB-residual diagnostics
     mask_perturbed_gene                               — drop perturbed gene from moments
     tf_score_frame                                    — z-scores → long DataFrame
@@ -26,6 +27,7 @@ from .eval import (
     PRCurve,
     TFZScores,
     mask_perturbed_gene,
+    per_cell_nll,
     per_gene_nll,
     per_perturbation_moments,
     per_perturbation_nll,
@@ -41,12 +43,19 @@ from .models import (
     TFCellBoxNuisance,
     TFRegression,
     TFRegressionFixed,
+    TFRegressionFixedNuisance,
     TFRegressionNuisance,
     lcp_to_count_mean,
     nb_nll,
+    poisson_nll,
 )
-from .regulondb import build_tf_mask, load_synonym_rows, reconcile_names
-from .train import fit
+from .regulondb import (
+    build_tf_mask,
+    load_synonym_rows,
+    reconcile_names,
+    restrict_targets,
+)
+from .train import fit, fit_dro
 
 __all__ = [
     "ConstantMean",
@@ -60,19 +69,24 @@ __all__ = [
     "TFCellBoxNuisance",
     "TFRegression",
     "TFRegressionFixed",
+    "TFRegressionFixedNuisance",
     "TFRegressionNuisance",
     "TFStandardizer",
     "TFZScores",
     "build_gt_labels",
     "build_tf_mask",
+    "restrict_targets",
     "fit",
+    "fit_dro",
     "lcp_to_count_mean",
     "load_synonym_rows",
     "mask_perturbed_gene",
     "nb_nll",
+    "per_cell_nll",
     "per_gene_nll",
     "per_perturbation_moments",
     "per_perturbation_nll",
+    "poisson_nll",
     "pr_curve",
     "prepare_layers",
     "profile_metrics",

@@ -16,6 +16,7 @@ DATASETS=(
     KEGG
     RegulonDB
     RegulonDB_PSSM
+    RegulonDB_HT
     # bigg
     calvo2020_dcas9fitness
     genomes

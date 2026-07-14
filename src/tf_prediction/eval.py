@@ -17,8 +17,6 @@ import pandas as pd
 from scipy.stats import median_abs_deviation
 from sklearn.metrics import average_precision_score, precision_recall_curve
 
-from .models import nb_nll
-
 
 class PerPertNLL(NamedTuple):
     """Mean NB-NLL per (perturbation, gene)."""
@@ -65,18 +63,23 @@ class PRCurve(NamedTuple):
 # ── per-gene NLL ──────────────────────────────────────────────────────────────
 
 
-def _make_per_gene_nll_step(model):
+def _make_per_gene_nll_step(model, nll_fn):
     @jax.jit
     def step(params, x_tf, y_raw, lib):
         mean, conc = model.apply({"params": params}, x_tf, lib)
-        return nb_nll(mean, conc, y_raw)  # (B, n_genes)
+        return nll_fn(mean, conc, y_raw)  # (B, n_genes)
 
     return step
 
 
-def per_gene_nll(model, params, X_tf, Y_raw, lib, *, batch_size: int = 512):
-    """Mean NLL/cell per gene over the dataset. Returns (n_genes,)."""
-    step = _make_per_gene_nll_step(model)
+def per_gene_nll(model, params, X_tf, Y_raw, lib, batch_size, nll_fn):
+    """Mean NLL/cell per gene over the dataset. Returns (n_genes,).
+
+    ``nll_fn`` selects the likelihood — e.g. ``nb_nll`` or ``poisson_nll`` (to
+    score a model trained with a Poisson loss). No default — pass it
+    explicitly.
+    """
+    step = _make_per_gene_nll_step(model, nll_fn)
     n, n_genes = X_tf.shape[0], Y_raw.shape[1]
     acc = np.zeros(n_genes, dtype=np.float64)
     for s in range(0, n, batch_size):
@@ -90,11 +93,37 @@ def per_gene_nll(model, params, X_tf, Y_raw, lib, *, batch_size: int = 512):
     return acc / n
 
 
+def per_cell_nll(model, params, X_tf, Y_raw, lib, batch_size, nll_fn):
+    """Mean NLL/gene per cell over the dataset, aligned row-for-row with ``X_tf``.
+
+    Returns ``(n_cells,)``.  This is the per-cell reduction complementary to
+    ``per_gene_nll`` — the vector ``fit_dro`` consumes as its ``baseline`` (e.g.
+    the NLL of a W=0 null model), so ``baseline[i]`` corresponds to cell ``i``.
+    ``nll_fn`` selects the likelihood — no default, pass it explicitly.
+    """
+    step = _make_per_gene_nll_step(model, nll_fn)
+    n = X_tf.shape[0]
+    out = np.empty(n, dtype=np.float64)
+    for s in range(0, n, batch_size):
+        sl = slice(s, s + batch_size)
+        nll = step(
+            params,
+            jnp.asarray(X_tf[sl]),
+            jnp.asarray(Y_raw[sl]),
+            jnp.asarray(lib[sl]),
+        )
+        out[sl] = np.asarray(nll.mean(axis=1))
+    return out
+
+
 def per_perturbation_nll(
-    model, params, X_tf, Y_raw, lib, pert_labels, *, batch_size: int = 512
+    model, params, X_tf, Y_raw, lib, pert_labels, batch_size, nll_fn
 ) -> PerPertNLL:
-    """Mean NLL per (perturbation, gene). Returns ``PerPertNLL``."""
-    step = _make_per_gene_nll_step(model)
+    """Mean NLL per (perturbation, gene). Returns ``PerPertNLL``.
+
+    ``nll_fn`` selects the likelihood — no default, pass it explicitly.
+    """
+    step = _make_per_gene_nll_step(model, nll_fn)
     pert_labels = np.asarray(pert_labels)
     unique_perts, pert_idx = np.unique(pert_labels, return_inverse=True)
     n_perts, n_genes = len(unique_perts), Y_raw.shape[1]

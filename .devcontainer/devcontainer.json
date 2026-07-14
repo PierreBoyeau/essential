@@ -19,7 +19,9 @@
     // Run the container with GPU support
     "runArgs": [
         "--device=nvidia.com/gpu=all",
-        "--env-file=${localWorkspaceFolder}/.env"
+        "--env-file=${localWorkspaceFolder}/.env",
+        // Bump /dev/shm from the 64MB default so PyTorch DataLoader workers (Boltz-2)
+        "--shm-size=8g"
     ],
 
     // Runs on the host before the container is built/started.
